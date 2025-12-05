@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sylos - Self-Hosted Data Migration Tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <video class="background-video" autoplay muted loop playsinline>
+        <source src="assets\backgrounds\Cyan and Magenta Sparkles by Gam-Ol on Pixabay.mp4" type="video/mp4">
+    </video>
+    <header>
+        <nav>
+            <div class="nav-container">
+                <div class="logo">
+                    <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="logo-img">
+                </div>
+                <div class="nav-links">
+                    <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="nav-icon" title="Discord">
+                        <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="nav-icon-img">
+                    </a>
+                    <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="nav-icon" title="GitHub">
+                        <img src="assets/logos/github-transparent-inversed-color.png" alt="GitHub" class="nav-icon-img nav-icon-img-github">
+                    </a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Hero Section: What is this? -->
+        <section class="hero">
+            <div class="container">
+                <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="hero-logo">
+                <p class="tagline">
+                    Move your files anywhere, from cloud to cloud, drive to drive, or anywhere in between. 
+                    Fast, private, and completely under your control.
+                </p>
+                <div class="hero-cta">
+                    <a href="" data-link="downloads" class="btn btn-primary">Get Started</a>
+                    <a href="" data-link="discord" class="btn btn-secondary">Join the Community</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Why Section: Why would I use it? -->
+        <section id="features" class="why-section">
+            <div class="container">
+                <h2>Why Sylos?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <h3>Completely Free</h3>
+                        <p>No subscriptions, no hidden fees, no limits. Sylos is open source and free forever—use it as much as you need.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Blazing Fast</h3>
+                        <p>Move your files at maximum speed with optimized performance that makes large migrations feel effortless.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Complete Privacy</h3>
+                        <p>Your data never leaves your control. Everything runs on your own machines—no cloud services, no third parties.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Preview Before You Move</h3>
+                        <p>See exactly what will change before anything happens. Review differences, filter what you want, then execute with confidence.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Never Lose Progress</h3>
+                        <p>Pause anytime and resume exactly where you left off. Your migrations survive interruptions, crashes, and restarts.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>Smart Filtering</h3>
+                        <p>Filter by file type, folder depth, or use powerful regex patterns. Control exactly what gets moved and what stays behind.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Preview Section -->
+        <section class="preview-section">
+            <div class="container">
+                <h2>See It In Action</h2>
+                <div class="preview-container">
+                    <img src="assets/preview/software-preview.gif" alt="Sylos Software Preview" class="preview-gif">
+                </div>
+            </div>
+        </section>
+
+        <!-- Getting Started Section -->
+        <section id="getting-started" class="getting-started-section">
+            <div class="container">
+                <h2>Get Started</h2>
+                <p class="section-description">
+                    Choose a single all-in-one installer, or separate UI and API components for advanced setups. 
+                    Everything runs on your own infrastructure—no cloud required.
+                </p>
+                <div class="cta-buttons">
+                    <a href="" data-link="downloads" class="btn btn-primary">Download</a>
+                    <a href="" data-link="documentation" class="btn btn-secondary">Documentation</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Community Section -->
+        <section id="community" class="community-section">
+            <div class="container">
+                <h2>Community & Resources</h2>
+                <div class="community-grid">
+                    <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="community-card">
+                        <div class="icon">
+                            <img src="assets/logos/github-transparent-inversed-color.png" alt="GitHub" class="community-icon-img">
+                        </div>
+                        <h3>GitHub</h3>
+                        <p>Source code, developer docs, and contributions</p>
+                    </a>
+                    <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="community-card">
+                        <div class="icon">
+                            <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="community-icon-img">
+                        </div>
+                        <h3>Discord</h3>
+                        <p>Join the community and get support</p>
+                    </a>
+                    <a href="" data-link="documentation" class="community-card">
+                        <div class="icon">📚</div>
+                        <h3>Documentation</h3>
+                        <p>User guides and getting started tutorials</p>
+                        <span class="badge">Coming Soon</span>
+                    </a>
+                    <a href="" data-link="downloads" class="community-card">
+                        <div class="icon">⬇️</div>
+                        <h3>Downloads</h3>
+                        <p>Get the latest releases</p>
+                        <span class="badge">Coming Soon</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Sylos. Open source and self-hosted.</p>
+            <p class="alpha-notice">Sylos is currently in early development. Features may change rapidly.</p>
+        </div>
+    </footer>
+    <script>
+        // Populate links from config
+        document.addEventListener('DOMContentLoaded', function() {
+            const linkElements = document.querySelectorAll('[data-link]');
+            linkElements.forEach(element => {
+                const linkKey = element.getAttribute('data-link');
+                if (CONFIG.links[linkKey]) {
+                    element.href = CONFIG.links[linkKey];
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
