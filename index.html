@@ -6,7 +6,7 @@
     <title>Sylos - Self-Hosted Data Migration Tool</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="config.js"></script>
 </head>
@@ -24,8 +24,8 @@
                     <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="nav-icon" title="Discord">
                         <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="nav-icon-img">
                     </a>
-                    <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="nav-icon" title="GitHub">
-                        <img src="assets/logos/github-transparent-inversed-color.png" alt="GitHub" class="nav-icon-img nav-icon-img-github">
+                    <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="nav-icon" title="Codeberg hub repo">
+                        <img src="assets/logos/codeberg.svg" alt="Codeberg" class="nav-icon-img nav-icon-img-codeberg">
                     </a>
                 </div>
             </div>
@@ -38,13 +38,8 @@
             <div class="container">
                 <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="hero-logo">
                 <p class="tagline">
-                    Move your files anywhere, from cloud to cloud, drive to drive, or anywhere in between. 
-                    Fast, private, and completely under your control.
+                    Move your files from cloud to cloud, drive to drive, or anywhere in between.
                 </p>
-                <div class="hero-cta">
-                    <a href="" data-link="downloads" class="btn btn-primary">Get Started</a>
-                    <a href="" data-link="discord" class="btn btn-secondary">Join the Community</a>
-                </div>
             </div>
         </section>
 
@@ -91,40 +86,34 @@
             </div>
         </section> -->
 
-        <!-- Getting Started Section -->
-        <section id="getting-started" class="getting-started-section">
-            <div class="container">
-                <h2>Get Started</h2>
-                <p class="section-description">
-                    Choose a single all-in-one installer, or separate UI and API components for advanced setups. 
-                    Everything runs on your own infrastructure. No cloud required.
-                </p>
-                <div class="cta-buttons">
-                    <a href="" data-link="downloads" class="btn btn-primary">Download</a>
-                    <a href="" data-link="documentation" class="btn btn-secondary">Documentation</a>
-                </div>
-            </div>
-        </section>
-
-        <!-- Community Section -->
+        <!-- Hub + Discord: single place for CTAs (header icons + cards below) -->
         <section id="community" class="community-section">
             <div class="container">
-                <h2>Community & Resources</h2>
-                <div class="community-grid">
+                <h2>Contributions &amp; Community</h2>
+                <div class="community-intro">
+                    <p>
+                        To contribute code or creative work, or to help test early releases, start at the Codeberg hub repo. It links the rest of the project and stays the main entry point as we ship releases.
+                    </p>
+                    <p>
+                        We coordinate on Discord: roadmap, active work, bounties, and the conversations that make contributing and testing simpler. Testing notes and getting started usually appear there first. You do not need to be a developer to follow along. It is also the best place to ask questions before you take on a task or open a pull request.
+                    </p>
+                </div>
+                <div class="community-grid community-grid-two">
                     <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="community-card">
                         <div class="icon">
                             <img src="assets/logos/codeberg.svg" alt="Codeberg" class="community-icon-img">
                         </div>
-                        <h3>Codeberg</h3>
-                        <p>Source code and issue tracker</p>
+                        <h3>Codeberg Hub Repo</h3>
+                        <p>Source, related repositories, and how to contribute.</p>
                     </a>
                     <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="community-card">
                         <div class="icon">
                             <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="community-icon-img">
                         </div>
                         <h3>Discord</h3>
-                        <p>Join the community and get support</p>
+                        <p>Roadmap, active issues, and chat with contributors. Recommended if you want to follow along or help.</p>
                     </a>
+                    <!--
                     <a href="" data-link="documentation" class="community-card">
                         <div class="icon">📚</div>
                         <h3>Documentation</h3>
@@ -137,6 +126,48 @@
                         <p>Get the latest releases</p>
                         <span class="badge">Coming Soon</span>
                     </a>
+                    -->
+                </div>
+            </div>
+        </section>
+
+        <section id="faq" class="faq-section">
+            <div class="container">
+                <h2>Frequently Asked Questions</h2>
+                <div class="faq-list">
+                    <details class="faq-item" open>
+                        <summary class="faq-summary">Why not just use Rclone?</summary>
+                        <div class="faq-item-body">
+                            <p>
+                                Rclone is an excellent fit for scheduled sync, mounts, and everyday cloud work from the terminal.
+                            </p>
+                            <p>
+                                Sylos is built around deliberate runs where you inspect a plan, execute, and keep queryable history of what happened. Small copies are fine; it matters most when the job is large or traceability really matters.
+                            </p>
+                            <ul>
+                                <li>
+                                    <strong>Resume without a full rescan.</strong> After an interrupt, continue from the last known state instead of walking the entire tree again from scratch.
+                                </li>
+                                <li>
+                                    <strong>Review before write.</strong> Copy, skip, and flag decisions are visible before any data moves.
+                                </li>
+                                <li>
+                                    <strong>SQL snapshots.</strong> Filesystem state lands in a migration database as you go, so you can audit, report, or build your own tooling on top.
+                                </li>
+                                <li>
+                                    <strong>UI by default.</strong> Sylos is designed around user workflows in a graphical app, not as a CLI tool (yet). The database is still a natural integration point for custom or automated systems if needed.
+                                </li>
+                            </ul>
+                        </div>
+                    </details>
+                    <details class="faq-item" open>
+                        <summary class="faq-summary">Can I use this as a CLI / terminal tool?</summary>
+                        <div class="faq-item-body">
+                            <p>
+                                Not yet: releases today are GUI-only. A TUI and a fuller SDK are planned after Version 1 so scripting and integration do not depend on the migration database alone.
+                            </p>
+                        </div>
+                    </details>
                 </div>
             </div>
         </section>
@@ -144,8 +175,8 @@
 
     <footer>
         <div class="container">
-            <p>&copy; 2025 Sylos. Open source and self-hosted.</p>
-            <p class="alpha-notice">Sylos is currently in early development. Features may change rapidly.</p>
+            <p>&copy; 2026 Sylos. Open source and self-hosted.</p>
+            <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
         </div>
     </footer>
     <script>

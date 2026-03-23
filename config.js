@@ -1,10 +1,11 @@
 // Configuration for Sylos landing page
 const CONFIG = {
     links: {
-        codeberg: "https://codeberg.org/Sylos",
-        discord: "https://discord.gg/sfYCzZQNQp",
-        documentation: "#docs",
-        downloads: "#downloads"
+        // Hub repo: entry point for repos, releases context, and contributing
+        codeberg: "https://codeberg.org/sylos/sylos",
+        discord: "https://chat.sylos.io/",
+        // documentation: "#", // user docs, add when published
+        // downloads: "#",       // installers, add when available
     }
 };
 
