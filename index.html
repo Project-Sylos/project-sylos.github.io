@@ -76,15 +76,81 @@
             </div>
         </section>
 
-        <!-- Preview Section
-        <section class="preview-section">
+        <section id="preview" class="preview-section" aria-labelledby="preview-heading">
             <div class="container">
-                <h2>See It In Action</h2>
-                <div class="preview-container">
-                    <img src="assets/preview/software-preview.gif" alt="Sylos Software Preview" class="preview-gif">
+                <h2 id="preview-heading">See it in action</h2>
+                <div class="demo-carousel" data-demo-carousel tabindex="0" role="region" aria-label="Sylos interface screenshots">
+                    <div class="demo-carousel-shell">
+                        <div class="demo-carousel-viewport">
+                            <div class="demo-carousel-track" data-demo-track>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/1_start_page.png" alt="Sylos start page" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Start page</figcaption>
+                                </figure>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/2_select_your_migration.png" alt="Selecting a migration" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Start a new migration or resume where you left off.</figcaption>
+                                </figure>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/3_resume_a_migration.png" alt="Resuming a migration" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Manage your session history and pick up where you left off previously.</figcaption>
+                                </figure>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/4_discovery_progress_page.png" alt="Discovery progress" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Stay in the loop with real-time progress and status updates during the discovery and copy phases.</figcaption>
+                                </figure>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/5_traversal_review_tree_view.png" alt="Traversal review tree view" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Review the file tree and see the differences between the source and destination. Make adjustments to mark failed items to be retried or mark pending items to be excluded from the copy process..</figcaption>
+                                </figure>
+                                <figure class="demo-slide" data-demo-slide>
+                                    <div class="demo-slide-frame">
+                                        <img src="assets/demo_assets/6_traversal_review_list_view.png" alt="Traversal review list view" loading="lazy" decoding="async">
+                                    </div>
+                                    <figcaption class="demo-slide-caption">Search through for specific items, make adjustments to individual items or entire subtrees.</figcaption>
+                                </figure>
+                                <div class="demo-slide demo-slide--pair" data-demo-slide role="group" aria-label="List view search filters and sort options">
+                                    <div class="demo-slide-pair">
+                                        <figure class="demo-slide-pair-item">
+                                            <div class="demo-slide-frame">
+                                                <img src="assets/demo_assets/7a_search_filters_in_list_view.png" alt="Search filters in list view" loading="lazy" decoding="async">
+                                            </div>
+                                            <figcaption class="demo-slide-caption">Search filters that can be applied to your search results.</figcaption>
+                                        </figure>
+                                        <figure class="demo-slide-pair-item">
+                                            <div class="demo-slide-frame">
+                                                <img src="assets/demo_assets/7b_sort_by_options_in_list_view.png" alt="Sort options in list view" loading="lazy" decoding="async">
+                                            </div>
+                                            <figcaption class="demo-slide-caption">Sort options that can be applied to your search results.</figcaption>
+                                        </figure>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="demo-carousel-toolbar">
+                            <button type="button" class="demo-carousel-btn demo-carousel-btn--icon" data-demo-prev aria-label="Previous screenshot">
+                                <svg class="demo-carousel-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                            </button>
+                            <div class="demo-carousel-dots" data-demo-dots></div>
+                            <button type="button" class="demo-carousel-btn demo-carousel-btn--icon" data-demo-next aria-label="Next screenshot">
+                                <svg class="demo-carousel-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="demo-carousel-hint" id="demo-carousel-status" role="status" aria-live="polite"></p>
                 </div>
             </div>
-        </section> -->
+        </section>
 
         <!-- Hub + Discord: single place for CTAs (header icons + cards below) -->
         <section id="community" class="community-section">
@@ -189,6 +255,120 @@
                     element.href = CONFIG.links[linkKey];
                 }
             });
+
+            const carousel = document.querySelector('[data-demo-carousel]');
+            if (carousel) {
+                const shell = carousel.querySelector('.demo-carousel-shell');
+                const track = carousel.querySelector('[data-demo-track]');
+                const slides = carousel.querySelectorAll('[data-demo-slide]');
+                const prevBtn = carousel.querySelector('[data-demo-prev]');
+                const nextBtn = carousel.querySelector('[data-demo-next]');
+                const dotsRoot = carousel.querySelector('[data-demo-dots]');
+                const statusEl = document.getElementById('demo-carousel-status');
+                const total = slides.length;
+                const AUTOPLAY_MS = 10000;
+                const MANUAL_COOLDOWN_MS = 60000;
+                let index = 0;
+                let autoplayTimer = null;
+                let hoverPaused = false;
+                let manualCooldownEnd = 0;
+
+                function clearAutoplay() {
+                    if (autoplayTimer !== null) {
+                        clearTimeout(autoplayTimer);
+                        autoplayTimer = null;
+                    }
+                }
+
+                function scheduleAutoplay() {
+                    clearAutoplay();
+                    var step = function() {
+                        if (hoverPaused) {
+                            autoplayTimer = setTimeout(step, 250);
+                            return;
+                        }
+                        var now = Date.now();
+                        if (now < manualCooldownEnd) {
+                            autoplayTimer = setTimeout(step, Math.min(400, manualCooldownEnd - now + 25));
+                            return;
+                        }
+                        applySlide(index + 1);
+                        autoplayTimer = setTimeout(step, AUTOPLAY_MS);
+                    };
+                    var delay = AUTOPLAY_MS;
+                    if (hoverPaused) {
+                        delay = 250;
+                    } else if (Date.now() < manualCooldownEnd) {
+                        delay = Math.max(0, manualCooldownEnd - Date.now());
+                    }
+                    autoplayTimer = setTimeout(step, delay);
+                }
+
+                function applySlide(i) {
+                    index = (i % total + total) % total;
+                    track.style.transform = 'translateX(-' + index * 100 + '%)';
+                    dots().forEach(function(dot, di) {
+                        dot.classList.toggle('is-active', di === index);
+                    });
+                    updateStatus();
+                }
+
+                function goManual(i) {
+                    manualCooldownEnd = Date.now() + MANUAL_COOLDOWN_MS;
+                    applySlide(i);
+                    scheduleAutoplay();
+                }
+
+                for (let d = 0; d < total; d++) {
+                    const dot = document.createElement('button');
+                    dot.type = 'button';
+                    dot.className = 'demo-carousel-dot';
+                    dot.setAttribute('aria-label', 'Go to slide ' + (d + 1) + ' of ' + total);
+                    dot.addEventListener('click', function() {
+                        goManual(d);
+                    });
+                    dotsRoot.appendChild(dot);
+                }
+
+                const dots = function() {
+                    return dotsRoot.querySelectorAll('.demo-carousel-dot');
+                };
+
+                function updateStatus() {
+                    if (statusEl) {
+                        statusEl.textContent = 'Slide ' + (index + 1) + ' of ' + total;
+                    }
+                }
+
+                if (shell) {
+                    shell.addEventListener('mouseenter', function() {
+                        hoverPaused = true;
+                    });
+                    shell.addEventListener('mouseleave', function() {
+                        hoverPaused = false;
+                    });
+                }
+
+                prevBtn.addEventListener('click', function() {
+                    goManual(index - 1);
+                });
+                nextBtn.addEventListener('click', function() {
+                    goManual(index + 1);
+                });
+
+                carousel.addEventListener('keydown', function(e) {
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        goManual(index - 1);
+                    } else if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        goManual(index + 1);
+                    }
+                });
+
+                applySlide(0);
+                scheduleAutoplay();
+            }
         });
     </script>
 </body>
