@@ -19,6 +19,12 @@
     --bg-secondary: #121218;
     --bg-tertiary: #181820;
     --bg-card: rgba(18, 18, 24, 0.85);
+
+    /* Procedural page backdrop (charcoal mesh) */
+    --bg-mesh-base: #070708;
+    --bg-mesh-top: rgba(44, 46, 54, 0.22);
+    --bg-mesh-corner-tr: rgba(22, 24, 30, 0.75);
+    --bg-mesh-side: rgba(14, 16, 22, 0.65);
     
     /* Text Colors */
     --text-primary: #eaeaf2;
@@ -70,6 +76,26 @@ body {
     pointer-events: none;
 }
 
+/* Full-screen charcoal: layered gradients only (no image/video) */
+.background-generated {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-color: var(--bg-mesh-base);
+    background-image:
+        radial-gradient(ellipse 90% 58% at 50% -18%, var(--bg-mesh-top) 0%, transparent 56%),
+        radial-gradient(ellipse 72% 48% at 102% 88%, var(--bg-mesh-corner-tr) 0%, transparent 54%),
+        radial-gradient(ellipse 58% 52% at -8% 52%, var(--bg-mesh-side) 0%, transparent 50%),
+        linear-gradient(
+            168deg,
+            #0b0b0f 0%,
+            #080809 36%,
+            #0a0a0e 68%,
+            #060607 100%
+        );
+}
+
 body::before {
     content: '';
     position: fixed;
@@ -79,6 +105,8 @@ body::before {
     height: 100%;
     pointer-events: none;
     z-index: -1;
+    /* Soft vignette so content stays the focus */
+    background: radial-gradient(ellipse 85% 85% at 50% 45%, transparent 0%, rgba(0, 0, 0, 0.42) 100%);
 }
 
 .container {
@@ -87,6 +115,70 @@ body::before {
     padding: 0 1.5rem;
     position: relative;
     z-index: 1;
+}
+
+/* Scroll-triggered reveal (Intersection Observer adds .is-revealed) */
+@media (prefers-reduced-motion: no-preference) {
+    [data-scroll-reveal]:not(.is-revealed) {
+        opacity: 0;
+        transform: translateY(1.15rem);
+    }
+
+    [data-scroll-reveal].is-revealed {
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+            opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+        transition-delay: var(--reveal-delay, 0s);
+    }
+
+    [data-scroll-reveal-scope]:not(.is-revealed) > * {
+        opacity: 0;
+        transform: translateY(1.05rem);
+    }
+
+    [data-scroll-reveal-scope].is-revealed > * {
+        opacity: 1;
+        transform: translateY(0);
+        transition:
+            opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(1) {
+        transition-delay: 0.03s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(2) {
+        transition-delay: 0.09s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(3) {
+        transition-delay: 0.15s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(4) {
+        transition-delay: 0.21s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(5) {
+        transition-delay: 0.27s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(6) {
+        transition-delay: 0.33s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(7) {
+        transition-delay: 0.39s;
+    }
+    [data-scroll-reveal-scope].is-revealed > *:nth-child(8) {
+        transition-delay: 0.45s;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-scroll-reveal],
+    [data-scroll-reveal-scope] > * {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
 }
 
 /* Header & Navigation */

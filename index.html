@@ -11,9 +11,8 @@
     <script src="config.js"></script>
 </head>
 <body>
-    <video class="background-video" autoplay muted loop playsinline preload="auto">
-        <source src="assets/backgrounds/cyan-magenta-gentle-stream-by-tommyvideo-on-pixabay-720p-web-optimized.mp4" type="video/mp4">
-    </video>
+    <!-- Other backgrounds: swap this div for <video class="background-video">… or a static <img> if you prefer -->
+    <div class="background-generated" aria-hidden="true"></div>
     <header>
         <nav>
             <div class="nav-container">
@@ -36,8 +35,8 @@
         <!-- Hero Section: What is this? -->
         <section class="hero">
             <div class="container">
-                <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="hero-logo">
-                <p class="tagline">
+                <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="hero-logo" data-scroll-reveal>
+                <p class="tagline" data-scroll-reveal style="--reveal-delay: 0.12s">
                     Move your files from cloud to cloud, drive to drive, or anywhere in between.
                 </p>
             </div>
@@ -46,8 +45,8 @@
         <!-- Why Section: Why would I use it? -->
         <section id="features" class="why-section">
             <div class="container">
-                <h2>Why Sylos?</h2>
-                <div class="features-grid">
+                <h2 data-scroll-reveal>Why Sylos?</h2>
+                <div class="features-grid" data-scroll-reveal-scope>
                     <div class="feature-card">
                         <h3>Completely Free</h3>
                         <p>No subscriptions, no hidden fees, no limits. Sylos is open source and free forever. Use it as much as you need.</p>
@@ -78,44 +77,44 @@
 
         <section id="preview" class="preview-section" aria-labelledby="preview-heading">
             <div class="container">
-                <h2 id="preview-heading">See it in action</h2>
-                <div class="demo-carousel" data-demo-carousel tabindex="0" role="region" aria-label="Sylos interface screenshots">
+                <h2 id="preview-heading" data-scroll-reveal>See it in action</h2>
+                <div class="demo-carousel" data-demo-carousel data-scroll-reveal tabindex="0" role="region" aria-label="Sylos interface screenshots">
                     <div class="demo-carousel-shell">
                         <div class="demo-carousel-viewport">
                             <div class="demo-carousel-track" data-demo-track>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/1_start_page.png" alt="Sylos start page" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/1_start_page_dark.png" alt="Sylos start page" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Start page</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/2_select_your_migration.png" alt="Selecting a migration" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/2_select_your_migration_dark.png" alt="Selecting a migration" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Start a new migration or resume where you left off.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/3_resume_a_migration.png" alt="Resuming a migration" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/3_resume_a_migration_dark.png" alt="Resuming a migration" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Manage your session history and pick up where you left off previously.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/4_discovery_progress_page.png" alt="Discovery progress" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/4_discovery_progress_page_dark.png" alt="Discovery progress" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Stay in the loop with real-time progress and status updates during the discovery and copy phases.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/5_traversal_review_tree_view.png" alt="Traversal review tree view" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/5_traversal_review_tree_view_dark.png" alt="Traversal review tree view" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Review the file tree and see the differences between the source and destination. Make adjustments to mark failed items to be retried or mark pending items to be excluded from the copy process..</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/6_traversal_review_list_view.png" alt="Traversal review list view" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/6_traversal_review_list_view_dark.png" alt="Traversal review list view" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Search through for specific items, make adjustments to individual items or entire subtrees.</figcaption>
                                 </figure>
@@ -123,13 +122,13 @@
                                     <div class="demo-slide-pair">
                                         <figure class="demo-slide-pair-item">
                                             <div class="demo-slide-frame">
-                                                <img src="assets/demo_assets/7a_search_filters_in_list_view.png" alt="Search filters in list view" loading="lazy" decoding="async">
+                                                <img src="assets/demo_assets/7a_search_filters_in_list_view_dark.png" alt="Search filters in list view" loading="lazy" decoding="async">
                                             </div>
                                             <figcaption class="demo-slide-caption">Search filters that can be applied to your search results.</figcaption>
                                         </figure>
                                         <figure class="demo-slide-pair-item">
                                             <div class="demo-slide-frame">
-                                                <img src="assets/demo_assets/7b_sort_by_options_in_list_view.png" alt="Sort options in list view" loading="lazy" decoding="async">
+                                                <img src="assets/demo_assets/7b_sort_by_options_in_list_view_dark.png" alt="Sort options in list view" loading="lazy" decoding="async">
                                             </div>
                                             <figcaption class="demo-slide-caption">Sort options that can be applied to your search results.</figcaption>
                                         </figure>
@@ -155,8 +154,8 @@
         <!-- Organization page + Discord: single place for CTAs (header icons + cards below) -->
         <section id="community" class="community-section">
             <div class="container">
-                <h2>Contributions &amp; Community</h2>
-                <div class="community-intro">
+                <h2 data-scroll-reveal>Contributions &amp; Community</h2>
+                <div class="community-intro" data-scroll-reveal-scope>
                     <p>
                         To contribute code or creative work, or to help test early releases, start at the Codeberg organization. It links the rest of the project and stays the main entry point as we ship releases.
                     </p>
@@ -164,7 +163,7 @@
                         We coordinate on Discord: roadmap, active work, bounties, and the conversations that make contributing and testing simpler. Testing notes and getting started usually appear there first. You do not need to be a developer to follow along. It is also the best place to ask questions before you take on a task or open a pull request.
                     </p>
                 </div>
-                <div class="community-grid community-grid-two">
+                <div class="community-grid community-grid-two" data-scroll-reveal-scope>
                     <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="community-card">
                         <div class="icon">
                             <img src="assets/logos/codeberg.svg" alt="Codeberg" class="community-icon-img">
@@ -199,8 +198,8 @@
 
         <section id="faq" class="faq-section">
             <div class="container">
-                <h2>Frequently Asked Questions</h2>
-                <div class="faq-list">
+                <h2 data-scroll-reveal>Frequently Asked Questions</h2>
+                <div class="faq-list" data-scroll-reveal-scope>
                     <details class="faq-item" open>
                         <summary class="faq-summary">Why not just use Rclone?</summary>
                         <div class="faq-item-body">
@@ -255,6 +254,35 @@
                     element.href = CONFIG.links[linkKey];
                 }
             });
+
+            (function initScrollReveal() {
+                var revealNodes = document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-scope]');
+                if (!revealNodes.length) {
+                    return;
+                }
+                var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (reduceMotion) {
+                    revealNodes.forEach(function(el) {
+                        el.classList.add('is-revealed');
+                    });
+                    return;
+                }
+                var observer = new IntersectionObserver(
+                    function(entries) {
+                        entries.forEach(function(entry) {
+                            if (!entry.isIntersecting) {
+                                return;
+                            }
+                            entry.target.classList.add('is-revealed');
+                            observer.unobserve(entry.target);
+                        });
+                    },
+                    { root: null, rootMargin: '0px 0px -6% 0px', threshold: 0.06 }
+                );
+                revealNodes.forEach(function(el) {
+                    observer.observe(el);
+                });
+            })();
 
             const carousel = document.querySelector('[data-demo-carousel]');
             if (carousel) {
