@@ -451,12 +451,6 @@ nav {
     padding: 0 0.25rem 0.5rem;
 }
 
-.demo-slide--pair .demo-slide-caption {
-    text-align: left;
-    font-size: 0.9375rem;
-    margin-top: 0.65rem;
-}
-
 .demo-slide-pair {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -467,10 +461,6 @@ nav {
 .demo-slide-pair-item {
     margin: 0;
     min-width: 0;
-}
-
-.demo-slide--pair .demo-slide-frame img {
-    max-height: min(58vh, 480px);
 }
 
 .demo-carousel-toolbar {
@@ -989,10 +979,6 @@ footer p {
     .demo-slide-pair {
         grid-template-columns: 1fr;
         gap: 1rem;
-    }
-
-    .demo-slide--pair .demo-slide-frame img {
-        max-height: min(50vh, 420px);
     }
 
     .demo-slide-frame img {
