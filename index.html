@@ -13,19 +13,16 @@
 <body>
     <!-- Other backgrounds: swap this div for <video class="background-video">… or a static <img> if you prefer -->
     <div class="background-generated" aria-hidden="true"></div>
-    <header>
-        <nav>
+    <header class="site-header" id="site-header">
+        <nav class="site-nav" aria-label="Main">
             <div class="nav-container">
-                <div class="logo">
-                    <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="logo-img">
-                </div>
+                <a href="index.html" class="logo-link" aria-label="Sylos home">
+                    <img src="assets/logos/main-app-logo-transparent.png" alt="" class="logo-img">
+                </a>
                 <div class="nav-links">
-                    <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="nav-icon" title="Discord">
-                        <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="nav-icon-img">
-                    </a>
-                    <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="nav-icon" title="Codeberg organization page">
-                        <img src="assets/logos/codeberg.svg" alt="Codeberg" class="nav-icon-img nav-icon-img-codeberg">
-                    </a>
+                    <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="nav-text-link">Source code</a>
+                    <a href="#community" class="nav-text-link">Community</a>
+                    <a href="blog/index.html" class="nav-text-link">Blog</a>
                 </div>
             </div>
         </nav>
@@ -161,7 +158,7 @@
                         We coordinate on Discord: roadmap, active work, bounties, and the conversations that make contributing and testing simpler. Testing notes and getting started usually appear there first. You do not need to be a developer to follow along. It is also the best place to ask questions before you take on a task or open a pull request.
                     </p>
                 </div>
-                <div class="community-grid community-grid-two" data-scroll-reveal-scope>
+                <div class="community-grid community-grid-three" data-scroll-reveal-scope>
                     <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="community-card">
                         <div class="icon">
                             <img src="assets/logos/codeberg.svg" alt="Codeberg" class="community-icon-img">
@@ -175,6 +172,11 @@
                         </div>
                         <h3>Discord</h3>
                         <p>Roadmap, active issues, and chat with contributors. Recommended if you want to follow along or help.</p>
+                    </a>
+                    <a href="blog/index.html" class="community-card community-card--internal">
+                        <div class="icon community-icon-text" aria-hidden="true">✦</div>
+                        <h3>Blog</h3>
+                        <p>Engineering design notes on architecture, tradeoffs, and how the migration engine was built.</p>
                     </a>
                     <!--
                     <a href="" data-link="documentation" class="community-card">
@@ -245,17 +247,10 @@
             <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
         </div>
     </footer>
+    <script src="site-nav.js"></script>
     <script>
         // Populate links from config
         document.addEventListener('DOMContentLoaded', function() {
-            const linkElements = document.querySelectorAll('[data-link]');
-            linkElements.forEach(element => {
-                const linkKey = element.getAttribute('data-link');
-                if (CONFIG.links[linkKey]) {
-                    element.href = CONFIG.links[linkKey];
-                }
-            });
-
             (function initScrollReveal() {
                 var revealNodes = document.querySelectorAll('[data-scroll-reveal], [data-scroll-reveal-scope]');
                 if (!revealNodes.length) {

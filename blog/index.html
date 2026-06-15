@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sylos Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="background-generated" aria-hidden="true"></div>
+
+    <header class="site-header" id="site-header">
+        <nav class="site-nav" aria-label="Main">
+            <div class="nav-container">
+                <a href="../index.html" class="logo-link" aria-label="Sylos home">
+                    <img src="../assets/logos/main-app-logo-transparent.png" alt="" class="logo-img">
+                </a>
+                <div class="nav-links">
+                    <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="nav-text-link">Source code</a>
+                    <a href="../index.html#community" class="nav-text-link">Community</a>
+                    <a href="index.html" class="nav-text-link">Blog</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="blog-page">
+        <div class="container">
+            <nav class="blog-nav" aria-label="Blog navigation">
+                <a href="../index.html" class="blog-back-link">&larr; Back to Sylos</a>
+            </nav>
+
+            <header class="blog-header">
+                <h1>Blog</h1>
+                <p class="blog-header-lead">Technical design notes and engineering write-ups from building Sylos.</p>
+            </header>
+
+            <div class="blog-list">
+                <a href="journey.html" class="blog-post-card">
+                    <h2>A Durable Local Task Engine for Dynamically Expanding Workloads</h2>
+                    <p>Design and evaluation of a local-first task engine: append-only events, lease scheduling, Spectra benchmarking, and measured tradeoffs.</p>
+                    <span class="blog-post-card-link">Read article &rarr;</span>
+                </a>
+                <a href="spectra.html" class="blog-post-card">
+                    <h2>Spectra: A Synthetic Filesystem for Deterministic Benchmarking</h2>
+                    <p>Why Spectra exists, persistent vs ephemeral modes, key design choices, and limitations for traversal and migration testing.</p>
+                    <span class="blog-post-card-link">Read article &rarr;</span>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Sylos. Open source and self-hosted.</p>
+            <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
+        </div>
+    </footer>
+    <script src="../config.js"></script>
+    <script src="../site-nav.js"></script>
+</body>
+</html>

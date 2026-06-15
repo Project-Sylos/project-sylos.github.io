@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sylos: Spectra Synthetic Filesystem Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <div class="background-generated" aria-hidden="true"></div>
+
+    <header class="site-header" id="site-header">
+        <nav class="site-nav" aria-label="Main">
+            <div class="nav-container">
+                <a href="../index.html" class="logo-link" aria-label="Sylos home">
+                    <img src="../assets/logos/main-app-logo-transparent.png" alt="" class="logo-img">
+                </a>
+                <div class="nav-links">
+                    <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="nav-text-link">Source code</a>
+                    <a href="../index.html#community" class="nav-text-link">Community</a>
+                    <a href="index.html" class="nav-text-link">Blog</a>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main class="blog-page">
+        <div class="container">
+            <nav class="blog-nav" aria-label="Blog navigation">
+                <a href="index.html" class="blog-back-link">&larr; All posts</a>
+            </nav>
+
+            <article class="blog-article">
+                <div class="blog-prose">
+                    <h1>Spectra: A Synthetic Filesystem for Deterministic Benchmarking</h1>
+                    <p class="paper-meta">Design notes &middot; June 2026</p>
+
+                    <div class="paper-abstract">
+                        <p><strong>Abstract.</strong> Spectra is a synthetic filesystem simulator for testing traversal, migration, and mirroring pipelines without real disk I/O or cloud APIs. Trees are procedurally generated from configuration (depth, fanout, seed) and exposed through an SDK, HTTP API, and Go <code>fs.FS</code> interface. This document summarizes the problem it addresses, its operating modes, principal design choices, and known limitations.</p>
+                    </div>
+                    <p class="paper-lead">
+                        Benchmarking a traversal engine on a live filesystem measures the engine, the OS cache, disk latency, and tree shape at once. Spectra isolates the engine by replacing storage with a reproducible synthetic backend.
+                    </p>
+
+                    <hr>
+
+                    <h2>1. Problem statement</h2>
+                    <p>
+                        Migration and traversal tools are difficult to evaluate fairly on real hardware. Copying a local folder reports elapsed time but confounds engine logic with I/O variance, background OS activity, and unknown directory skew. Cloud APIs add rate limits and network noise. Generating hundreds of millions of real files for a stress test is impractical on most machines.
+                    </p>
+                    <p>
+                        What is needed is a filesystem-shaped interface that can produce arbitrarily large trees on demand, reproduce the same tree from a seed, and optionally inject latency or failure without touching physical storage. Spectra was built for that role within the Sylos project; it is also usable as a standalone library (MIT licensed).
+                    </p>
+
+                    <h2>2. What Spectra provides</h2>
+                    <p>
+                        Spectra behaves like a mock filesystem. Folders and files are generated procedurally from JSON configuration: maximum depth, fanout distribution, file size ranges, RNG seed, and optional multi-world probabilities. Nodes carry metadata (path, depth, type, size, timestamps, checksums) and are served through list/get/create/delete operations compatible with migration-style workloads.
+                    </p>
+                    <p>
+                        Typical uses include validating BFS traversal logic, comparing engines under identical trees, integration testing against a stable API shape, and projecting separate "worlds" so two logical sources can be exercised through the same machinery (for example via Rclone against <code>fs.FS</code> backends).
+                    </p>
+
+                    <h2>3. Operating modes</h2>
+                    <h3>3.1 Persistent mode</h3>
+                    <p>
+                        Default. Nodes are stored in an embedded BoltDB database with lazy generation: children materialize as they are accessed. A write-ahead buffer batches inserts and updates; an optional sliding-window node cache can reduce read traffic during BFS-style access. Implements Go's <code>fs.FS</code> for tool compatibility.
+                    </p>
+                    <h3>3.2 Ephemeral mode</h3>
+                    <p>
+                        No database. Children are generated on the fly from parent path and depth. Listing requires path and depth explicitly. Suited to large traversal benchmarks where persistence is unnecessary and I/O should be minimized entirely. Optional diverging-tree seeding can give each world a different shape from the same config skeleton.
+                    </p>
+                    <p>
+                        Sylos engine comparisons against Rclone on Spectra ephemeral runs remove storage bottlenecks and expose scheduling, persistence, and coordination overhead directly. See <a href="journey.html">the migration engine design note</a> for how those results are interpreted.
+                    </p>
+
+                    <h2>4. Design highlights</h2>
+                    <ul>
+                        <li><strong>Deterministic node IDs.</strong> Root is <code>root</code>; all other nodes use <code>spc:</code> plus a 32-character hex digest (FNV-128a of path and type). Same path and type yield the same ID across runs and worlds.</li>
+                        <li><strong>Heavy-tailed fanout.</strong> Folder and file counts are drawn from logarithmic buckets with exponential decay and per-depth scaling. Most directories stay small; occasional "monster" directories stress breadth without uniform random fanout.</li>
+                        <li><strong>World existence map.</strong> Each node records which logical worlds (<code>primary</code>, <code>s1</code>, <code>s2</code>, etc.) it belongs to, supporting overlap and copy scenarios without duplicating tree generation logic.</li>
+                        <li><strong>O(1) child retrieval.</strong> Parents store a <code>child_ids</code> array updated in batched flushes, avoiding prefix scans through index buckets during traversal.</li>
+                        <li><strong>Write-ahead buffer.</strong> Separate insert and update queues flush in order (inserts before updates) with batched parent <code>ChildIDs</code> updates to keep bulk generation from devolving into O(n²) parent rewrites.</li>
+                        <li><strong>Optional 3-generation cache.</strong> When enabled, a sliding window over grandparent, parent, and child depths can cut BoltDB reads during BFS by roughly two thirds. Disabled by default to avoid memory cost on small or write-heavy runs.</li>
+                        <li><strong>fs.FS projection.</strong> Each world can be exposed as a standard Go filesystem, allowing external tools to treat synthetic worlds as independent remotes.</li>
+                    </ul>
+
+                    <h2>5. Limitations and considerations</h2>
+                    <ul>
+                        <li><strong>Not a fidelity model of real storage.</strong> Latency distributions, ACLs, rename semantics, and backend-specific failure modes are only approximated. Results isolate engine behavior; they do not replace tests on real devices or APIs.</li>
+                        <li><strong>BoltDB write serialization.</strong> Persistent mode has a single writer. Batching amortizes this, but write-heavy workloads still contend on the database lock.</li>
+                        <li><strong>Memory vs cache.</strong> The optional node cache bounds depth to three generations but memory still scales with fanout within that window. Aggressive fanout configs can produce very wide frontiers.</li>
+                        <li><strong>JSON serialization cost.</strong> A meaningful fraction of CPU time in bulk operations goes to marshaling node records. Acceptable for a test harness; not tuned as a production datastore.</li>
+                        <li><strong>Schema evolution.</strong> Major version changes (for example deterministic ID format and <code>child_ids</code>) require regenerating databases rather than migrating in place.</li>
+                        <li><strong>Synthetic file content.</strong> File payloads are generated deterministically from seeds; throughput tests do not exercise real byte copying unless an integrator adds that layer.</li>
+                    </ul>
+
+                    <h2>6. Further reading</h2>
+                    <p>
+                        Source, API reference, configuration fields, and integration notes live in the
+                        <a href="https://codeberg.org/sylos/Spectra">Spectra repository on Codeberg</a>.
+                        Package READMEs and <code>INTEGRATION_GUIDE.md</code> are the authoritative reference for API signatures and migration between major versions.
+                    </p>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Sylos. Open source and self-hosted.</p>
+            <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
+        </div>
+    </footer>
+    <script src="../config.js"></script>
+    <script src="../site-nav.js"></script>
+</body>
+</html>
