@@ -11,30 +11,5 @@
         });
     }
 
-    function initPinnedHeader() {
-        var header = document.getElementById("site-header");
-        if (!header) {
-            return;
-        }
-
-        var hero = document.querySelector(".hero");
-        if (!hero) {
-            header.classList.add("is-pinned");
-            return;
-        }
-
-        function updateHeader() {
-            var threshold = Math.max(hero.offsetHeight - 48, 120);
-            header.classList.toggle("is-pinned", window.scrollY > threshold);
-        }
-
-        window.addEventListener("scroll", updateHeader, { passive: true });
-        window.addEventListener("resize", updateHeader);
-        updateHeader();
-    }
-
-    document.addEventListener("DOMContentLoaded", function () {
-        populateConfigLinks();
-        initPinnedHeader();
-    });
+    document.addEventListener("DOMContentLoaded", populateConfigLinks);
 })();
