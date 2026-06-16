@@ -22,171 +22,43 @@
                 <div class="blog-prose">
                     <h1>A Durable Local Task Engine for Dynamically Expanding Workloads</h1>
                     <p class="paper-meta">Design notes from the Sylos migration engine &middot; June 2026</p>
-                    <p class="paper-disclosure"><strong>Note on authorship.</strong> The prose on this page was produced with AI assistance for raw text generation, but then heavily reviewed, edited, and guided by the author for accuracy and quality.</p>
+                    <p class="paper-disclosure"><strong>Note on authorship.</strong> The prose on this page was produced with AI assistance for raw text generation, then heavily reviewed, edited, and guided by the author for accuracy and quality.</p>
 
-                    <div class="paper-abstract">
-                        <p><strong>Abstract.</strong> This document presents the design and evaluation of a local-first task engine for very large, dynamically expanding workloads. The motivating use case is filesystem migration, although the techniques generalize to any system in which tasks generate additional tasks during execution.</p>
-                        <p>The paper discusses tradeoffs encountered while implementing durable queue semantics on a single machine, including database selection, append-only event modeling, keyset pagination, checkpointing, and deterministic benchmarking. Performance observations are presented using both real storage devices and a deterministic synthetic filesystem simulator.</p>
-                    </div>
                     <p class="paper-lead">
-                        The central challenge is not only executing work quickly, but also managing the growth, persistence, and replay of work that recursively generates additional work.
+                        Sylos is a breadth-first filesystem migration tool. This note is about the task engine behind it. The same pattern applies anywhere running a task can create more tasks: you need a durable local queue that can grow without blowing up memory or treating the database as the live scheduler on every pull.
+                    </p>
+                    <p>
+                        Workers do not recurse in-process. Each task handles one item, persists any children, and stops. That child work is picked up in a later <strong>round</strong> (in Sylos, the next BFS depth level). Scheduling, leasing, and retries live in an in-memory queue; DuckDB is a durable log you refill from and append to, not the frontier itself.
+                    </p>
+                    <p>
+                        Below: the pull-lease-process-append loop, what went wrong with mutable row queues and read-after-write assumptions, and the three DuckDB patterns that made this practical at scale (Appender bulk writes, append-only status events, and keyset batch pulls).
                     </p>
 
                     <hr>
 
-                    <h2>1. Problem statement</h2>
+                    <h2>1. Problem</h2>
                     <p>
-                        Many systems reduce to the same computational shape: a task runs, discovers child tasks, and schedules them.
-                        Scientific pipelines, ETL jobs, crawlers, dependency resolvers, build graphs, and migration tools all share this structure.
-                        The system forms a dynamically expanding work graph: tasks produce additional tasks until no further work remains.
-                    </p>
-                    <pre><code>Task
- ├─&gt; New Task A
- ├─&gt; New Task B
- └─&gt; New Task C</code></pre>
-                    <p>
-                        Anyone building a task queue at scale hits the same imbalance between work generation and work consumption.
-                        If tasks are produced faster than workers can process them, pending items accumulate in memory. The backlog grows,
-                        RAM grows, and eventually the process dies. That is the failure mode that kills most hand-rolled in-memory designs once
-                        traversal starts generating children faster than workers can list directories or call remote APIs.
+                        A task runs, discovers child tasks, and schedules them. At scale this is not a fixed queue size. Generation can outpace consumption for long stretches, especially when one listing expands into hundreds of pending items. If pending work lives only in process memory, the backlog grows until the process fails.
                     </p>
                     <p>
-                        The opposite case is less dangerous. If workers outpace incoming work, you get idle threads and wasted CPU cycles.
-                        That is survivable. Biasing toward starvation over unbounded buffering is usually the safer default.
-                    </p>
-                    <p>
-                        Sylos amplifies the generation side. Listing one folder can emit hundreds of child tasks in a single batch.
-                        During a large run, completed work produces additional work items faster than workers can lease and execute them,
-                        round after round. An in-memory frontier does not scale; it is the growing cache described above.
-                    </p>
-                    <p>
-                        The response was to stop treating the hot queue as the system of record. Workers still lease and process from an
-                        in-memory buffer for speed, but discovered nodes and status events are persisted through a DB buffer into DuckDB's
-                        Appender as soon as practical. Pending work is pulled back from the database in batches rather than held indefinitely
-                        in RAM. That shifts unbounded growth from process memory to disk, which is slower but bounded and resumable.
-                        Later sections cover the schema and pull model.
-                    </p>
-                    <p>
-                        Sylos applies this pattern to one-way migration between two node trees (source and destination). Filesystem traversal
-                        is the motivating example; the engine problem is durable scheduling of recursively generated work on a single machine.
+                        The engine must therefore <strong>write results and read the next batch of pending work from the same store</strong>, survive restarts, and avoid duplicate traversal. Pure in-memory scheduling is fast but not resumable. Per-node synchronous database round-trips do not reach millions of items. The design target is a local, durable task queue with dynamically expanding work, not a distributed stream processor.
                     </p>
 
-                    <h2>2. Non-goals</h2>
-                    <p>The engine intentionally does not attempt to provide:</p>
-                    <ul>
-                        <li>distributed execution</li>
-                        <li>exactly-once semantics</li>
-                        <li>arbitrary dependency scheduling</li>
-                        <li>real-time stream processing</li>
-                    </ul>
+                    <h2>2. Engine loop</h2>
                     <p>
-                        The design targets durable, resumable, single-node processing of dynamically expanding work graphs.
-                        Dual-tree coordination (Section 7) is an application-layer concern for migration, not a requirement of the core engine.
-                    </p>
-
-                    <h2>3. Engine overview</h2>
-                    <p>
-                        Traversal uses <strong>breadth-first search (BFS)</strong>, not depth-first. BFS requires materializing each frontier level,
-                        but it provides predictable round boundaries and a practical way to coordinate two trees in lockstep.
+                        Each worker handles one node per task: list immediate children, apply filters, persist results, stop. Children become new tasks for a later <strong>round</strong> (the next BFS depth level), not on the worker's call stack. Depth is carried in the queue, not in recursion. That matters for skewed trees (one branch with millions of descendants, a sibling with none): a worker must not recurse in-process and pin work that other workers could take.
                     </p>
                     <p>
-                        The overall graph is recursive: every task can produce more tasks. What is <em>not</em> recursive is what a single worker
-                        does in one shot. Each task handles exactly one node, lists its immediate children, and stops. Children become separate
-                        tasks scheduled for a later round. No worker walks an entire subtree in one call; depth is flattened into the queue instead
-                        of carried on the call stack.
+                        The runtime loop:
                     </p>
-                    <p>
-                        That distinction matters for filesystem trees in particular. Sibling branches are wildly uneven: one directory might contain
-                        millions of descendants while its neighbor is empty. If a worker recursed in-process down a deep branch, it would hold that
-                        work for itself while other workers sit idle. You would lose most of the benefit of a concurrent task queue. One-touch-per-task
-                        keeps load spread across workers and lets slow branches coexist with fast ones without pinning a single goroutine for hours.
-                    </p>
-                    <p>Per task, the steps are:</p>
                     <ol>
-                        <li>List immediate children of the current node only.</li>
-                        <li>Apply filter rules; record failures without scheduling further traversal.</li>
-                        <li>Persist passing children and their initial status events; enqueue them as new tasks for the next round.</li>
+                        <li><strong>Pull</strong> a batch of pending rows from DuckDB (<code>WHERE id &gt;= last_id LIMIT n</code>).</li>
+                        <li><strong>Lease</strong> them into an in-memory buffer for workers.</li>
+                        <li><strong>Process</strong> each item (list, filter, discover children).</li>
+                        <li><strong>Append</strong> new node rows, status events, and child work through a write buffer into the Appender; flush to disk.</li>
+                        <li>Advance <code>last_id</code> and repeat. On crash, restore round cursors and pull from the last known ID.</li>
                     </ol>
-                    <p>
-                        Workers pull pending tasks in batches, execute traversal, emit status events, and discover child nodes that become new work.
-                        Results pass through an in-memory buffer, into DuckDB's <strong>Appender API</strong>, and flush at round boundaries.
-                        Append-only status events are the source of truth for resume, not in-memory queue state alone.
-                    </p>
-                    <p>
-                        The engine runs in two passes: <strong>discovery</strong> (traverse and diff both trees) and <strong>execution</strong>
-                        (copy or create after user review). This document focuses on the discovery/traversal substrate.
-                    </p>
 
-                    <h2>4. Persistence and scheduling constraints</h2>
-                    <p>
-                        A tempting pattern:
-                    </p>
-                    <pre><code>INSERT task
-SELECT pending task
-UPDATE task SET processing</code></pre>
-                    <p>
-                        B-tree storage handles transactional workloads well. It degrades under millions of small updates, queue-like access patterns,
-                        and append-heavy streams on ever-growing tables. Observed limits during prototyping included:
-                    </p>
-                    <ul>
-                        <li><strong>Bolt:</strong> acceptable initially; sharp slowdown past ~200K entries in a single bucket (B+ tree growth).</li>
-                        <li><strong>SQLite:</strong> write throughput degraded past ~400K rows in a single table.</li>
-                        <li><strong>DuckDB (row updates):</strong> throughput walls and read-after-write inconsistency on the same connection, consistent with cache invalidation rather than immediate visibility of one's own writes.</li>
-                    </ul>
-                    <p>
-                        The structural tension: the engine must <strong>write traversal results and read pending work from the same store</strong>
-                        to schedule the next batch. Pure in-memory processing avoids DB cost but loses resume. Pure synchronous DB round-trips per
-                        node do not scale. The resolution was a hybrid scheduling layer (Section 6) plus a different data model (Section 5).
-                    </p>
-                    <p>
-                        An in-memory node cache was also prototyped: hold the current source level and its children until the destination
-                        consumes and compares against them. If the source runs ahead of the destination, that cache grows faster than the
-                        destination can drain it. Gating the source until the destination finishes the same level limits the damage but still
-                        requires roughly two frontier levels in RAM at once, which does not scale cleanly to very large breadth.
-                    </p>
-                    <p>
-                        You can partially mitigate by flushing destination results through the DB buffer and evicting source nodes the
-                        destination has finished, but that mostly shifts growth into the buffer until the next flush. With enough tuning,
-                        a cache-heavy design can trade memory for speed. The current engine does not rely on it; persistence through the
-                        database is the default because it bounds memory without sacrificing resume, and the throughput cost is acceptable
-                        for the guarantees being purchased.
-                    </p>
-
-                    <h2>5. Append-only event model</h2>
-                    <p>
-                        The fix was stopping in-place mutation of node state.
-                    </p>
-                    <p>
-                        Instead of:
-                    </p>
-                    <pre><code>UPDATE nodes SET status = 'complete' WHERE id = 123</code></pre>
-                    <p>
-                        The schema separates stable node metadata from append-only status history:
-                    </p>
-                    <ul>
-                        <li><code>src_nodes</code> / <code>dst_nodes</code>: path, depth, type, size, etc.</li>
-                        <li><code>src_status_events</code> / <code>dst_status_events</code>: pending on discovery, traversed or failed on completion.</li>
-                    </ul>
-                    <p>
-                        Discovery appends a node row and a pending event. Completion appends a new event row. No updates. No deletes during traversal.
-                        DuckDB performs well on this workload because columnar engines favor append-heavy writes and large analytical scans.
-                    </p>
-                    <p>
-                        Current status is reconstructed by resolving the latest event per node. That cost is paid at diff/review time, not during hot-path traversal.
-                        Pseudocode for the idea:
-                    </p>
-                    <pre><code>SELECT latest(status_event)
-FROM status_events
-GROUP BY node_id</code></pre>
-                    <p>
-                        If the database struggles with a workload, the first question is whether the data model forces the wrong access pattern,
-                        not whether the database is inherently unsuitable.
-                    </p>
-
-                    <h2>6. Architecture: persistence vs scheduling</h2>
-                    <p>
-                        The runtime separates durable storage from in-memory scheduling:
-                    </p>
                     <pre><code>                 +----------------+
                  |   DuckDB Log   |
                  | Nodes + Events |
@@ -213,147 +85,158 @@ GROUP BY node_id</code></pre>
                           ^
                           |
                  +--------+-------+
-                 | Pending Tasks  |
-                 | (Keyset Pulls) |
+                 | Keyset Pulls   |
+                 | (id &gt;= last)  |
                  +----------------+</code></pre>
+
+                    <h3>2.1 DuckDB Appender</h3>
                     <p>
-                        <strong>DuckDB</strong> provides durability, checkpointing, and replay after restart.
-                        <strong>In-memory structures</strong> provide leasing, batching, and scheduling latency.
+                        Hot-path writes go through DuckDB's <strong>Appender API</strong>, not row-by-row <code>INSERT</code> or <code>UPDATE</code> statements. Workers push node metadata and status events into an in-memory buffer; the buffer bulk-loads into the Appender and is flushed. Columnar append matches the write pattern: many new rows, few random updates.
                     </p>
                     <p>
-                        Workers emit status events and child nodes into a DB buffer. The buffer bulk-loads into the Appender; once drained, the Appender
-                        is flushed to force a disk write. The Appender maintains its own internal buffer, so the explicit flush is partially redundant.
-                        I kept it to define predictable persistence boundaries during development and debugging.
+                        The Appender maintains its own internal buffering. An explicit flush after draining the engine buffer defines when data is on disk for resume. That redundancy is intentional: persistence boundaries are predictable during development and after interrupts.
                     </p>
 
-                    <h2>7. Semantics: at-most-once work and dual-tree coordination</h2>
+                    <h3>2.2 Append-only status events</h3>
                     <p>
-                        Work-generating systems require explicit semantics:
+                        Node metadata (<code>src_nodes</code>, <code>dst_nodes</code>) is written once. State changes are new rows in <code>src_status_events</code> / <code>dst_status_events</code>: <code>pending</code> on discovery, <code>traversed</code> or <code>failed</code> on completion. No <code>UPDATE</code> or <code>DELETE</code> on the hot path.
                     </p>
-                    <ul>
-                        <li>no duplicate traversal of the same node</li>
-                        <li>no overlapping leases on the same unit of work</li>
-                        <li>deterministic progression through the graph</li>
-                        <li>resume from durable state after crash or pause</li>
-                    </ul>
+                    <pre><code>-- Avoid on hot path
+UPDATE nodes SET status = 'complete' WHERE id = 123
+
+-- Write pattern
+INSERT INTO status_events (node_id, status, ...) VALUES (...)</code></pre>
                     <p>
-                        On resume, queues restore round cursors and pull pending work from DuckDB again. The in-memory lease queue is ephemeral;
-                        append-only node and event rows in the database are not.
-                    </p>
-                    <p>
-                        Dual-tree migration adds a <strong>coordinator</strong> because destination work depends on what the source has already
-                        discovered at corresponding levels. The destination needs something to compare against; starting too early would mean
-                        missing or incomplete expectations.
-                    </p>
-                    <p>
-                        The source queue is the independent variable: it can traverse as far ahead as workers and backends allow. The destination
-                        queue runs as fast as it can, but only up to <strong>source round minus one</strong>. For example, if the source is on round 5, the
-                        destination must wait on round 4 until the coordinator allows it to proceed. Once the source starts round 6, the
-                        destination gets the green light for that round.
-                    </p>
-                    <p>
-                        Finer-grained gating is possible (localizing coordination to subtrees or partial frontiers), but I chose round-level
-                        gating for cleaner separation between the two traversals. The tradeoff is slightly more conservative pacing on the
-                        destination side in exchange for simpler invariants and easier reasoning about resume.
+                        Current status for review is resolved later by taking the latest event per node. That analytical read is paid at diff/review time, not during traversal.
                     </p>
 
+                    <h3>2.3 Keyset batch pulls</h3>
+                    <p>
+                        Pending work is fetched in batches. <code>LIMIT/OFFSET</code> is unsuitable at depth: offset 50,000,000 implies scanning past 50M rows on every page, so each pull is <strong>O(n)</strong> in table size. Keyset pagination on a monotonic ID turns each pull into an <strong>O(1)</strong> seek to <code>last_id</code> plus a bounded read of <code>batch_size</code> rows. As the database grows, pull cost stays flat instead of scaling with total rows already written.
+                    </p>
+                    <p>
+                        The engine tracks the starting ID of the next batch (last batched ID + 1):
+                    </p>
+                    <pre><code>WHERE id &gt;= :last_id
+LIMIT :batch_size</code></pre>
+                    <p>
+                        Level advancement uses batch boundaries: if a pull requests <em>n</em> rows but returns fewer than <em>n</em>, or no row exists at <em>last_id + n</em>, the current BFS level is likely exhausted. After the in-memory queue drains, the round advances. The ID set at a given depth is stable for the duration of that round (§3.1), which is what keeps keyset cursors from drifting as status events grow.
+                    </p>
+
+                    <h3>2.4 Task retries and leasing</h3>
+                    <p>
+                        <strong>What about task retries?</strong> Retries are handled entirely inside the lease queue. The database is not re-queried to discover that a task needs another attempt. A row is pulled from DuckDB into the queue once; from there the queue owns its lifecycle until the task succeeds or is exhausted.
+                    </p>
+                    <p>
+                        Workers do not take tasks directly from the database. They ask the queue for work. The queue mutex-locks a task for one attempt at a time. On each attempt, whether it succeeds or fails, the worker pushes results into the DB buffer so progress is persisted and resumable if the process crashes mid-retry. If the attempt succeeds, or fails after the configured maximum (for example three attempts), the queue records the final outcome and removes the task. If the attempt fails but retries remain, the queue records the attempt, unlocks the task, and another worker can pick it up.
+                    </p>
+                    <p>
+                        The queue is the authority on leasing. Workers report attempt completion; they do not decide unilaterally when a task leaves the active set. That keeps retry state out of the hot pull path and consistent with the memory-first scheduling model in §3.1.
+                    </p>
+
+                    <h2>3. Why row updates failed</h2>
+                    <p>
+                        An early model treated the database as a mutable task table: insert, select pending, update status. B-tree stores handle that poorly at volume. Prototyping hit throughput walls around hundreds of thousands of rows on Bolt (single bucket growth), SQLite, and DuckDB when updates dominated.
+                    </p>
+
+                    <h3>3.1 Read-after-write lag and sealed rounds</h3>
+                    <p>
+                        DuckDB with conventional updates also exhibited <strong>read-after-write inconsistency on the same connection</strong>: a write could be followed within milliseconds by a read that did not see it. That produced silent scheduling bugs when the engine assumed the database was the live source of truth on every pull.
+                    </p>
+                    <p>
+                        The current design still batches writes through the Appender, so completed work can look <code>pending</code> in DuckDB until the next flush. That lag is acknowledged. It does not corrupt pagination because rounds are <strong>sealed at a fixed depth</strong>: work at round <em>N</em> does not insert more nodes at depth <em>N</em>, only at depth <em>N+1</em> when parents finish. During round <em>N</em>, the <code>src_nodes</code> rows at depth <em>N</em> are stable. What grows is <code>src_status_events</code> as nodes move from pending to traversed.
+                    </p>
+                    <p>
+                        Pulls are anchored on node <code>id</code> at the current round's depth, with <code>id &gt; cursor</code> and a pending status filter applied at read time. The cursor advances to the last <strong>enqueued</strong> id, not the last row scanned. Once an id is leased into memory, it is not pulled again from the database. If a later flush marks that node successful before the cursor reaches higher ids, it simply drops out of pending results; it is not skipped, because it was already scheduled.
+                    </p>
+                    <p>
+                        Round completion is driven by <strong>in-memory state</strong>, not live DB pending counts: the lease buffer is empty, nothing is in progress, and the last pull was partial (keyspace at this depth exhausted). The database is a refill source and resume log during the round, not a real-time scheduler. Before advancing to round <em>N+1</em>, the engine forces an Appender flush so children written at depth <em>N+1</em> during round <em>N</em> are visible. There is no staging table merged at seal; one flush appends nodes and events together.
+                    </p>
                     <div class="paper-note">
-                        <p><strong>Note.</strong> The destination queue and round coordinator exist solely because migration requires comparison between two independent trees. For workloads that only traverse or process a single graph, the destination queue can be eliminated entirely. The remaining architecture is considerably simpler:</p>
-                        <p>Generate work → Persist events → Lease batches → Process → Generate more work.</p>
-                        <p>Append-only persistence, resumability, keyset pagination, and lease semantics remain unchanged.</p>
+                        <p><strong>Consistency model.</strong></p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Layer</th>
+                                    <th>Role during round <em>N</em></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Lease buffer + in-progress set</td>
+                                    <td>Truth for what is live this round</td>
+                                </tr>
+                                <tr>
+                                    <td>DuckDB</td>
+                                    <td>Truth for what exists; frontier refill and resume</td>
+                                </tr>
+                                <tr>
+                                    <td>Appender flush</td>
+                                    <td>Async write path; forced before round advance</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p>Deliberate tradeoff: the DB can show more pending rows than memory during a round. Cursor discipline and in-memory completion prevent double work. The fragility of the earlier in-memory node-cache design was largely cross-round state held only in RAM; this model pushes durability to DuckDB while keeping scheduling authority in memory for the active round.</p>
+                    </div>
+                    <p>
+                        Append-only events and Appender bulk loads removed <code>UPDATE</code> from the traversal path. Analytical reconstruction of latest status is deferred to review time; scheduling relies on sealed depth, monotonic ids, and flush boundaries instead of immediate read-your-writes on every pull.
+                    </p>
+
+                    <h2>4. Memory and coordination</h2>
+                    <h3>4.1 In-memory node cache (rejected)</h3>
+                    <p>
+                        A prototype held the current source level and its children in RAM until the destination consumed them. If the source ran ahead, the cache grew faster than the destination could drain it. Gating the source per level capped growth but still required roughly two frontier levels in memory at once. Evicting into the DB buffer shifted growth to another in-memory structure until flush. The approach could be tuned for speed at the cost of RAM; the current design does not rely on it.
+                    </p>
+                    <h3>4.2 Dual-tree coordinator</h3>
+                    <p>
+                        Migration compares two trees. Destination work depends on what the source has already discovered at the corresponding level. The source queue may run as far ahead as workers allow. The destination may run at full speed but only through <strong>source round minus one</strong>: if the source is on round 5, the destination waits on round 4 until the source begins round 6.
+                    </p>
+                    <p>
+                        Finer-grained gating per subtree is possible. Round-level gating was chosen for simpler invariants and resume behavior at the cost of slightly conservative destination pacing.
+                    </p>
+                    <div class="paper-note">
+                        <p><strong>Note.</strong> The destination queue and coordinator exist for two-tree comparison. Single-graph workloads drop that layer:</p>
+                        <p>Pull → Lease → Process → Append → repeat.</p>
                     </div>
 
-                    <h2>8. Keyset pagination</h2>
+                    <h2>5. Evaluation</h2>
                     <p>
-                        Pulling pending tasks with <code>LIMIT/OFFSET</code> degrades linearly: offset 50,000,000 implies scanning past 50M rows on
-                        every page. I use <strong>keyset pagination</strong> on monotonic IDs instead: track the starting ID of the next batch
-                        (last batched ID + 1), not a cumulative offset.
+                        Benchmarks use <a href="spectra.html">Spectra</a> for reproducible trees without real I/O; see the <a href="spectra.html">Spectra design note</a> for the harness. On live storage, throughput is near parity with Rclone because both systems become I/O bound. Under Spectra ephemeral mode, engine overhead (persistence, events, coordination) appears as roughly 10 to 30% additional cost versus a tool that does not carry the same guarantees.
                     </p>
-                    <pre><code>-- Degrades at scale
-LIMIT 1000 OFFSET 50000000
-
--- Constant-time seek per batch (given index on id)
-WHERE id &gt;= last_id
-LIMIT 1000</code></pre>
-                    <p>
-                        Level advancement uses soft batch boundaries: if a pull requests <em>x</em> tasks but returns fewer than <em>x</em>, or no row
-                        exists at position <em>x+1</em>, the current BFS level is likely exhausted. After the in-memory queue drains, the engine
-                        advances to the next level.
-                    </p>
-
-                    <h2>9. Benchmarking methodology</h2>
-                    <p>
-                        Benchmarking traversal engines is easy to do badly. Copying a local Documents folder and reporting elapsed time does not isolate
-                        engine behavior from disk variance, OS cache effects, or tree shape. Tests use
-                        <a href="spectra.html"><strong>Spectra</strong></a>, a synthetic filesystem simulator that generates reproducible trees from a seed
-                        without real I/O. A separate <a href="spectra.html">design note on Spectra</a> covers its modes, architecture, and limitations;
-                        this section only describes how it is used for engine evaluation.
-                    </p>
-                    <p>
-                        Spectra supports arbitrarily large seeded trees, configurable fanout (including heavy-tailed "monster directory" shapes),
-                        multi-world projections, and ephemeral mode for no-database traversal benchmarks. Failure injection and latency simulation
-                        are configuration concerns; the migration engine's traversal suites exercise recovery, resumption, and throughput under
-                        controlled trees rather than live disks.
-                    </p>
-
-                    <h3>9.1 Results summary</h3>
                     <table>
                         <thead>
                             <tr>
                                 <th>Environment</th>
                                 <th>Observation</th>
-                                <th>Interpretation</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td>Real storage (live OS drive)</td>
-                                <td>Near parity with Rclone</td>
-                                <td>Both systems become I/O bound. Disk, network, metadata latency, and API rate limits dominate.</td>
+                                <td>Real storage</td>
+                                <td>Near parity with Rclone; disk and API limits dominate.</td>
                             </tr>
                             <tr>
-                                <td>Spectra ephemeral (synthetic, no I/O)</td>
-                                <td>Sylos ~10 to 30% slower than Rclone</td>
-                                <td>I/O removed; engine overhead visible (DB persistence, event append, coordination, serialization).</td>
+                                <td>Spectra ephemeral (no I/O)</td>
+                                <td>~10 to 30% slower than Rclone; persistence and coordination overhead visible.</td>
                             </tr>
                         </tbody>
                     </table>
                     <p>
-                        The observed overhead is attributable to persistence and coordination machinery that does not exist in simpler traversal implementations.
-                        Sylos pays for a persistent event log, resumable queue state, review-phase metadata, checkpointing, and analytical reconstruction.
-                        Rclone's traversal path does not carry equivalent guarantees. Throughput numbers are only meaningful alongside what guarantees they cost.
-                    </p>
-                    <p>
-                        Under real storage, parity is roughly what physics predicts: once I/O is the bottleneck, architectural differences matter less.
-                        Under Spectra, the remaining gap reflects the persistence and coordination machinery described in Sections 5 through 8.
-                        It is not an indictment of the approach, but a measured overhead that should be disclosed when evaluating the design.
+                        Throughput numbers are only meaningful alongside what guarantees they cost. Sylos pays for a persistent event log, resumable queue state, and reconstructable review metadata. Rclone's traversal path does not carry equivalent machinery.
                     </p>
 
-                    <h2>10. Applicability beyond file migration</h2>
+                    <h2>6. Further reading</h2>
                     <p>
-                        The control loop generalizes:
-                    </p>
-                    <pre><code>Generate work → Append events → Lease batches → Process → Generate more work → Repeat</code></pre>
-                    <p>
-                        File migration is one instance. The same structure applies wherever local processing must walk a large graph that grows during
-                        execution, provided you need durability and can accept append-only reconstruction of current state.
-                    </p>
-
-                    <h2>11. Further reading</h2>
-                    <p>
-                        Implementation detail lives in the Sylos repositories on <a href="https://codeberg.org/sylos/">Codeberg</a>, particularly:
+                        Implementation detail: <a href="https://codeberg.org/sylos/">Codeberg</a>
                     </p>
                     <ul>
-                        <li><code>Migration-Engine/pkg/db</code>: schema, Appender, bulk writes, queries</li>
+                        <li><code>Migration-Engine/pkg/db</code>: schema, Appender, queries</li>
                         <li><code>Migration-Engine/pkg/queue</code>: pull flow, coordinator, resume</li>
-                        <li><code>Migration-Engine/pkg/migration</code>: orchestration and lifecycle</li>
-                        <li><a href="spectra.html">Spectra</a>: synthetic filesystem / deterministic test harness (<a href="https://codeberg.org/sylos/Spectra">repo</a>)</li>
+                        <li><code>Migration-Engine/pkg/migration</code>: orchestration</li>
+                        <li><a href="spectra.html">Spectra</a> (<a href="https://codeberg.org/sylos/Spectra">repo</a>)</li>
                     </ul>
                     <p>
-                        Package READMEs in those repos are the authoritative reference for APIs and behavior. This page is a design summary, not a spec.
-                    </p>
-                    <p>
-                        Technical discussion also happens on <a href="https://chat.sylos.io/">Discord</a>.
+                        Package READMEs are the authoritative API reference. This page is a design summary, not a spec.
                     </p>
                 </div>
             </article>
