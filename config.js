@@ -9,4 +9,3 @@ const CONFIG = {
         // downloads: "#",       // installers, add when available
     }
 };
-
