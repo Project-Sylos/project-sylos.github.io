@@ -2,7 +2,7 @@
 const CONFIG = {
     links: {
         // organization page: entry point for repos, releases context, and contributing
-        codeberg: "https://codeberg.org/sylos/",
+        github: "https://github.com/Project-Sylos",
         discord: "https://chat.sylos.io/",
         blog: "blog/index.html",
         // documentation: "#", // user docs, add when published
