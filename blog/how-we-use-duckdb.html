@@ -31,7 +31,7 @@
                         Workers do not recurse in-process. Each task handles one item, persists any children, and stops. That child work is picked up in a later <strong>round</strong> (in Sylos, the next BFS depth level). Scheduling, leasing, and retries live in an in-memory queue; DuckDB is a durable log you refill from and append to, not the frontier itself.
                     </p>
                     <p>
-                        Below: the pull-lease-process-append loop, what went wrong with mutable row queues and read-after-write assumptions, and the three DuckDB patterns that made this practical at scale (Appender bulk writes, append-only status events, and keyset batch pulls).
+                        Below: the pull-lease-process-append loop, the DuckDB patterns that made this practical at scale (Appender bulk writes, append-only status events with per-round materialization, and keyset batch pulls), dual-tree coordination, evaluation, and a short rebuttal of approaches that look simpler until the constraints bite.
                     </p>
 
                     <hr>
@@ -107,50 +107,34 @@ UPDATE nodes SET status = 'complete' WHERE id = 123
 -- Write pattern
 INSERT INTO status_events (node_id, status, ...) VALUES (...)</code></pre>
                     <p>
-                        Current status for review is resolved later by taking the latest event per node. That analytical read is paid at diff/review time, not during traversal.
+                        The event log is the write-ahead source of truth during a round. Review and status search do not scan it for "latest per node" on every query; that cost is compacted into a per-round materialized table (§2.3).
                     </p>
 
-                    <h3>2.3 Keyset batch pulls</h3>
+                    <h3>2.3 Per-round status materialization</h3>
                     <p>
-                        Pending work is fetched in batches. <code>LIMIT/OFFSET</code> is unsuitable at depth: offset 50,000,000 implies scanning past 50M rows on every page, so each pull is <strong>O(n)</strong> in table size. Keyset pagination on a monotonic ID turns each pull into an <strong>O(1)</strong> seek to <code>last_id</code> plus a bounded read of <code>batch_size</code> rows. As the database grows, pull cost stays flat instead of scaling with total rows already written.
+                        At the end of every BFS round, after the Appender flush, the engine rebuilds a one-row-per-item table (<code>src_current</code> / <code>dst_current</code>) holding just the latest status for nodes at that depth. Mid-round frontier pulls still window-aggregate over <code>status_events</code> for the ids in the keyset window, because the material table is intentionally stale until the round seals. After seal, review, status counts, and arbitrary SQL predicates (<code>status = pending</code>, and so on) read the compact table instead of replaying the full append log.
                     </p>
                     <p>
-                        The engine tracks the starting ID of the next batch (last batched ID + 1):
+                        The pattern is directly analogous to LSM-tree compaction: <code>status_events</code> is the write-ahead / append log, and the per-round seal step merges it into a fast, queryable materialized view. The compaction trigger is domain-specific (BFS round boundary) rather than time- or size-based as in a general-purpose LSM engine.
+                    </p>
+                    <p>
+                        We A/B tested with versus without the material table and saw roughly <strong>8×</strong> faster query times on large tables with it, so it was worth the complexity.
+                    </p>
+
+                    <h3>2.4 Keyset batch pulls</h3>
+                    <p>
+                        Pending work is fetched in batches. The original motivation for keyset pagination was not OFFSET scaling. Under fast, high-throughput runs we hit a DuckDB <strong>read-after-write inconsistency</strong> on the same connection: a flush would report success, but a subsequent query would not always see the newly written rows yet. The bug did not reproduce at manual / slow testing speed, which made it hard to track down. So it took hours of debugging to discover what the true issue was given this tricky runtime behavior. Re-querying "what is still pending?" after each flush was therefore unsafe as a scheduling primitive.
+                    </p>
+                    <p>
+                        Switching to a cursor-based approach (track last pulled ID + 1, rather than asking the database what remains pending) sidestepped the problem: the engine stopped depending on DuckDB's read-your-writes guarantee instead of trying to work around its timing. The pull becomes:
                     </p>
                     <pre><code>WHERE id &gt;= :last_id
 LIMIT :batch_size</code></pre>
                     <p>
-                        Level advancement uses batch boundaries: if a pull requests <em>n</em> rows but returns fewer than <em>n</em>, or no row exists at <em>last_id + n</em>, the current BFS level is likely exhausted. After the in-memory queue drains, the round advances. The ID set at a given depth is stable for the duration of that round (§3.1), which is what keeps keyset cursors from drifting as status events grow.
-                    </p>
-
-                    <h3>2.4 Task retries and leasing</h3>
-                    <p>
-                        <strong>What about task retries?</strong> Retries are handled entirely inside the lease queue. The database is not re-queried to discover that a task needs another attempt. A row is pulled from DuckDB into the queue once; from there the queue owns its lifecycle until the task succeeds or is exhausted.
+                        A secondary benefit is that keyset pagination avoids OFFSET's <strong>O(n)</strong> scan cost at large offsets (offset 50,000,000 implies scanning past 50M rows on every page). Each pull is an <strong>O(1)</strong> seek to <code>last_id</code> plus a bounded read of <code>batch_size</code> rows, so pull cost stays flat as the table grows. That OFFSET win is real, but it was not the original driver.
                     </p>
                     <p>
-                        Workers do not take tasks directly from the database. They ask the queue for work. The queue mutex-locks a task for one attempt at a time. On each attempt, whether it succeeds or fails, the worker pushes results into the DB buffer so progress is persisted and resumable if the process crashes mid-retry. If the attempt succeeds, or fails after the configured maximum (for example three attempts), the queue records the final outcome and removes the task. If the attempt fails but retries remain, the queue records the attempt, unlocks the task, and another worker can pick it up.
-                    </p>
-                    <p>
-                        The queue is the authority on leasing. Workers report attempt completion; they do not decide unilaterally when a task leaves the active set. That keeps retry state out of the hot pull path and consistent with the memory-first scheduling model in §3.1.
-                    </p>
-
-                    <h2>3. Why row updates failed</h2>
-                    <p>
-                        An early model treated the database as a mutable task table: insert, select pending, update status. B-tree stores handle that poorly at volume. Prototyping hit throughput walls around hundreds of thousands of rows on Bolt (single bucket growth), SQLite, and DuckDB when updates dominated.
-                    </p>
-
-                    <h3>3.1 Read-after-write lag and sealed rounds</h3>
-                    <p>
-                        DuckDB with conventional updates also exhibited <strong>read-after-write inconsistency on the same connection</strong>: a write could be followed within milliseconds by a read that did not see it. That produced silent scheduling bugs when the engine assumed the database was the live source of truth on every pull.
-                    </p>
-                    <p>
-                        The current design still batches writes through the Appender, so completed work can look <code>pending</code> in DuckDB until the next flush. That lag is acknowledged. It does not corrupt pagination because rounds are <strong>sealed at a fixed depth</strong>: work at round <em>N</em> does not insert more nodes at depth <em>N</em>, only at depth <em>N+1</em> when parents finish. During round <em>N</em>, the <code>src_nodes</code> rows at depth <em>N</em> are stable. What grows is <code>src_status_events</code> as nodes move from pending to traversed.
-                    </p>
-                    <p>
-                        Pulls are anchored on node <code>id</code> at the current round's depth, with <code>id &gt; cursor</code> and a pending status filter applied at read time. The cursor advances to the last <strong>enqueued</strong> id, not the last row scanned. Once an id is leased into memory, it is not pulled again from the database. If a later flush marks that node successful before the cursor reaches higher ids, it simply drops out of pending results; it is not skipped, because it was already scheduled.
-                    </p>
-                    <p>
-                        Round completion is driven by <strong>in-memory state</strong>, not live DB pending counts: the lease buffer is empty, nothing is in progress, and the last pull was partial (keyspace at this depth exhausted). The database is a refill source and resume log during the round, not a real-time scheduler. Before advancing to round <em>N+1</em>, the engine forces an Appender flush so children written at depth <em>N+1</em> during round <em>N</em> are visible. There is no staging table merged at seal; one flush appends nodes and events together.
+                        Appender batching still means completed work can look <code>pending</code> in DuckDB until the next flush. That does not corrupt pagination because rounds are <strong>sealed at a fixed depth</strong>: work at round <em>N</em> only inserts children at depth <em>N+1</em>, so the <code>src_nodes</code> rows at depth <em>N</em> are stable for the round. What grows mid-round is <code>status_events</code>. Pulls use <code>id &gt;= cursor</code> with a pending filter over the keyset window; the cursor advances to the last <strong>enqueued</strong> id. Once leased into memory, an id is not pulled again. Round completion is driven by <strong>in-memory state</strong> (empty lease buffer, nothing in progress, last pull partial), not live DB pending counts. Before advancing, the engine flushes then rebuilds <code>*_current</code> for the finished depth (§2.3).
                     </p>
                     <div class="paper-note">
                         <p><strong>Consistency model.</strong></p>
@@ -167,27 +151,34 @@ LIMIT :batch_size</code></pre>
                                     <td>Truth for what is live this round</td>
                                 </tr>
                                 <tr>
-                                    <td>DuckDB</td>
+                                    <td>DuckDB nodes + status events</td>
                                     <td>Truth for what exists; frontier refill and resume</td>
                                 </tr>
                                 <tr>
                                     <td>Appender flush</td>
                                     <td>Async write path; forced before round advance</td>
                                 </tr>
+                                <tr>
+                                    <td><code>src_current</code> / <code>dst_current</code></td>
+                                    <td>Sealed latest status for finished depths; review / search after round advance</td>
+                                </tr>
                             </tbody>
                         </table>
-                        <p>Deliberate tradeoff: the DB can show more pending rows than memory during a round. Cursor discipline and in-memory completion prevent double work. The fragility of the earlier in-memory node-cache design was largely cross-round state held only in RAM; this model pushes durability to DuckDB while keeping scheduling authority in memory for the active round.</p>
+                        <p>Deliberate tradeoff: the DB can show more pending rows than memory during a round. Cursor discipline and in-memory completion prevent double work.</p>
                     </div>
+
+                    <h3>2.5 Task retries and leasing</h3>
                     <p>
-                        Append-only events and Appender bulk loads removed <code>UPDATE</code> from the traversal path. Analytical reconstruction of latest status is deferred to review time; scheduling relies on sealed depth, monotonic ids, and flush boundaries instead of immediate read-your-writes on every pull.
+                        <strong>What about task retries?</strong> Retries are handled entirely inside the lease queue. The database is not re-queried to discover that a task needs another attempt. A row is pulled from DuckDB into the queue once; from there the queue owns its lifecycle until the task succeeds or is exhausted.
+                    </p>
+                    <p>
+                        Workers do not take tasks directly from the database. They ask the queue for work. The queue mutex-locks a task for one attempt at a time. On each attempt, whether it succeeds or fails, the worker pushes results into the DB buffer so progress is persisted and resumable if the process crashes mid-retry. If the attempt succeeds, or fails after the configured maximum (for example three attempts), the queue records the final outcome and removes the task. If the attempt fails but retries remain, the queue records the attempt, unlocks the task, and another worker can pick it up.
+                    </p>
+                    <p>
+                        The queue is the authority on leasing. Workers report attempt completion; they do not decide unilaterally when a task leaves the active set. That keeps retry state out of the hot pull path and consistent with the memory-first scheduling model in §2.4.
                     </p>
 
-                    <h2>4. Memory and coordination</h2>
-                    <h3>4.1 In-memory node cache (rejected)</h3>
-                    <p>
-                        A prototype held the current source level and its children in RAM until the destination consumed them. If the source ran ahead, the cache grew faster than the destination could drain it. Gating the source per level capped growth but still required roughly two frontier levels in memory at once. Evicting into the DB buffer shifted growth to another in-memory structure until flush. The approach could be tuned for speed at the cost of RAM; the current design does not rely on it.
-                    </p>
-                    <h3>4.2 Dual-tree coordinator</h3>
+                    <h2>3. Dual-tree coordination</h2>
                     <p>
                         Migration compares two trees. Destination work depends on what the source has already discovered at the corresponding level. The source queue may run as far ahead as workers allow. The destination may run at full speed but only through <strong>source round minus one</strong>: if the source is on round 5, the destination waits on round 4 until the source begins round 6.
                     </p>
@@ -199,7 +190,7 @@ LIMIT :batch_size</code></pre>
                         <p>Pull → Lease → Process → Append → repeat.</p>
                     </div>
 
-                    <h2>5. Evaluation</h2>
+                    <h2>4. Evaluation</h2>
                     <p>
                         Benchmarks use <a href="spectra.html">Spectra</a> for reproducible trees without real I/O; see the <a href="spectra.html">Spectra design note</a> for the harness. On live storage, throughput is near parity with Rclone because both systems become I/O bound. Under Spectra ephemeral mode, engine overhead (persistence, events, coordination) appears as roughly 10 to 30% additional cost versus a tool that does not carry the same guarantees.
                     </p>
@@ -225,13 +216,42 @@ LIMIT :batch_size</code></pre>
                         Throughput numbers are only meaningful alongside what guarantees they cost. Sylos pays for a persistent event log, resumable queue state, and reconstructable review metadata. Rclone's traversal path does not carry equivalent machinery.
                     </p>
 
+                    <h2>5. Couldn't you just&hellip;?</h2>
+                    <p>
+                        The shape above is not the first thing we tried. Most "obvious" database approaches fail against a tight constraint set: tables that must scale to at least <strong>~20M rows</strong>, a <strong>local embedded</strong> store (no separate DB server), <strong>very fast writes</strong> on the hot paths, like traversal mode or copy modes, and <strong>acceptably fast reads</strong> afterward. Writes and reads are slightly separated workloads, but the review phase still does large subtree updates and those have to finish in an acceptable amount of time. Memory complexity, time complexity, and developer complexity all matter: something that works at a few hundred thousand rows, or only if you keep the frontier in RAM, does not count.
+                    </p>
+
+                    <h3>Why not just use a k/v store with secondary indexes?</h3>
+                    <p>
+                        An earlier version of this engine ran on BoltDB and tried to buy read speed with hand-built secondary indexes: membership buckets per status per level, a reverse status-lookup bucket, and bidirectional <code>src-to-dst</code> / <code>dst-to-src</code> join buckets so correlating the two trees did not require an expensive read-time join. Each status transition touched several buckets atomically (update the node, move membership, refresh the lookup).
+                    </p>
+                    <p>
+                        Reads of known shapes were fast. Scale and ad-hoc review search were not. Even before the hundred-gigabyte stress cases, the central nodes bucket itself bogged down. As a B+tree grows, write amplification climbs: each insert or update touches more pages for splits and rebalancing, and Bolt's copy-on-write path rewrites those pages on the way down. Depth grows only logarithmically, but the constant factor per operation (pages read, copied, and rewritten) rises steadily until it stops being hideable. That degradation is roughly linear rather than a sudden cliff; past roughly 200K entries it crossed into multi-second inserts and updates on that bucket, so write throughput collapsed long before Appender-style LSM bulk loads would. Partitioning the nodes table to keep each B+tree small was the natural next try; it bought a temporary reprieve and roughly 10× more developer complexity, then the same wall per partition.
+                    </p>
+                    <p>
+                        A larger stress test with ~40M source nodes and ~20M destination nodes then grew the file to roughly 100GB: empty membership values meant Bolt's per-entry overhead dominated the payload, and multi-bucket writes stacked more amplification on top of COW. With no background compaction, that bloat stayed until a manual rewrite. Review-phase search was worse still: anything beyond the pre-built index shapes meant more reverse indexes or near-impossible hand-rolled scans. That path was scrapped for a simpler SQL approach in DuckDB. The lesson that carried forward was not "don't build indexes," but that indexes must earn their storage <em>and</em> maintenance cost, and an engine without compaction holds you to the storage cost forever. The Appender path plus per-round <code>*_current</code> compaction (§2.3) is the same space-for-speed trade, periodically reclaimed, with ordinary SQL predicates for review search instead of another layer of buckets.
+                    </p>
+
+                    <h3>Mutable status rows?</h3>
+                    <p>
+                        Separately, treating the database as a mutable task table (insert, select pending, update status) also failed at volume. Prototyping hit throughput walls around hundreds of thousands of rows on Bolt, SQLite, and DuckDB when updates dominated. The same prototype also hit the read-after-write inconsistency in §2.4 when it treated DuckDB as the live scheduler on every pull. Append-only events, keyset cursors, and memory-first round completion replaced that model.
+                    </p>
+
+                    <h3>Keep the frontier in memory?</h3>
+                    <p>
+                        This is the obvious first choice, and it looks like it works until you implement it. A prototype held the current source level and its children in RAM until the destination consumed them. If the source ran ahead, the cache grew faster than the destination could drain it. Gating the source per level capped growth but still required roughly two frontier levels in memory at once.
+                    </p>
+                    <p>
+                        The deeper problem is that RAM does not buy you out of durability. Resumability still requires periodic WAL-style flushes of updates into the database, so the write cost is only deferred, not removed. Producers (workers finishing tasks) can outrun the consumer (flushing the DB buffer to disk), which is a leaky-bucket problem: you keep going through a DB stall, then pay the same write throughput later with a larger backlog and less safety if the process dies mid-buffer. Evicting into the DB buffer only shifted growth to another in-memory structure until flush. You can tune that for speed if you accept unbounded (or carefully gated) RAM and weaker resume guarantees; under the 20M-row embedded constraint, the current design does not. DuckDB is the durable log; the lease queue is only the live scheduler for the active round.
+                    </p>
+
                     <h2>6. Further reading</h2>
                     <p>
                         Implementation detail: <a href="https://codeberg.org/sylos/">Codeberg</a>
                     </p>
                     <ul>
-                        <li><code>Migration-Engine/pkg/db</code>: schema, Appender, queries</li>
-                        <li><code>Migration-Engine/pkg/queue</code>: pull flow, coordinator, resume</li>
+                        <li><code>Migration-Engine/pkg/db</code>: schema, Appender, queries, <code>src_current</code> / <code>dst_current</code> rebuild</li>
+                        <li><code>Migration-Engine/pkg/queue</code>: pull flow, round advance (flush → rebuild current → reset cursor), resume</li>
                         <li><code>Migration-Engine/pkg/migration</code>: orchestration</li>
                         <li><a href="spectra.html">Spectra</a> (<a href="https://codeberg.org/sylos/Spectra">repo</a>)</li>
                     </ul>
