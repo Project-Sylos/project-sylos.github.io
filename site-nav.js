@@ -31,7 +31,7 @@
             '      <button type="button" class="site-drawer-close" id="nav-close" aria-label="Close navigation">&times;</button>' +
             "    </div>" +
             '    <nav class="site-drawer-nav" aria-label="Site">' +
-            '      <a href="" data-link="codeberg" target="_blank" rel="noopener noreferrer" class="site-drawer-link">Source code</a>' +
+            '      <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="site-drawer-link">Source code</a>' +
             '      <a href="' + homeHref + '#community" class="site-drawer-link">Community</a>' +
             '      <a href="' + blogHref + '" class="site-drawer-link">Blog</a>' +
             "    </nav>" +

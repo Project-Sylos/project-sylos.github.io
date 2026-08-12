@@ -117,9 +117,6 @@ INSERT INTO status_events (node_id, status, ...) VALUES (...)</code></pre>
                     <p>
                         The pattern is directly analogous to LSM-tree compaction: <code>status_events</code> is the write-ahead / append log, and the per-round seal step merges it into a fast, queryable materialized view. The compaction trigger is domain-specific (BFS round boundary) rather than time- or size-based as in a general-purpose LSM engine.
                     </p>
-                    <p>
-                        We A/B tested with versus without the material table and saw roughly <strong>8×</strong> faster query times on large tables with it, so it was worth the complexity.
-                    </p>
 
                     <h3>2.4 Keyset batch pulls</h3>
                     <p>
@@ -245,15 +242,20 @@ LIMIT :batch_size</code></pre>
                         The deeper problem is that RAM does not buy you out of durability. Resumability still requires periodic WAL-style flushes of updates into the database, so the write cost is only deferred, not removed. Producers (workers finishing tasks) can outrun the consumer (flushing the DB buffer to disk), which is a leaky-bucket problem: you keep going through a DB stall, then pay the same write throughput later with a larger backlog and less safety if the process dies mid-buffer. Evicting into the DB buffer only shifted growth to another in-memory structure until flush. You can tune that for speed if you accept unbounded (or carefully gated) RAM and weaker resume guarantees; under the 20M-row embedded constraint, the current design does not. DuckDB is the durable log; the lease queue is only the live scheduler for the active round.
                     </p>
 
+                    <h3>Skip the material table (LSM style compaction) and just always aggregate events?</h3>
+                    <p>
+                        Once the write path was append-only events, the tempting simplification was to skip <code>src_current</code> / <code>dst_current</code> and resolve latest status at read time with <code>arg_max</code> over <code>status_events</code>. We A/B tested that on large datasets: review and status-search queries were roughly <strong>8×</strong> faster with the material table. The rebuild cost is paid once per round and is usually a few seconds on even very large datasets; the win shows up on every review filter or page. A lazy hierarchical override table (gitignore-style ancestor walking) looked simpler still, but review needs ordinary SQL predicates without app-layer resolution. So the material table stayed.
+                    </p>
+
                     <h2>6. Further reading</h2>
                     <p>
-                        Implementation detail: <a href="https://codeberg.org/sylos/">Codeberg</a>
+                        Implementation detail: <a href="https://github.com/Project-Sylos">GitHub</a>
                     </p>
                     <ul>
                         <li><code>Migration-Engine/pkg/db</code>: schema, Appender, queries, <code>src_current</code> / <code>dst_current</code> rebuild</li>
                         <li><code>Migration-Engine/pkg/queue</code>: pull flow, round advance (flush → rebuild current → reset cursor), resume</li>
                         <li><code>Migration-Engine/pkg/migration</code>: orchestration</li>
-                        <li><a href="spectra.html">Spectra</a> (<a href="https://codeberg.org/sylos/Spectra">repo</a>)</li>
+                        <li><a href="spectra.html">Spectra</a> (<a href="https://github.com/Project-Sylos/Spectra">repo</a>)</li>
                     </ul>
                     <p>
                         Package READMEs are the authoritative API reference. This page is a design summary, not a spec.
