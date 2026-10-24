@@ -158,9 +158,9 @@
     --bg-orb-primary: transparent;
     --bg-orb-secondary: transparent;
     --text-primary: #1c1e24;
-    --text-secondary: rgba(28, 30, 36, 0.72);
-    --text-tertiary: rgba(28, 30, 36, 0.54);
-    --text-muted: rgba(28, 30, 36, 0.42);
+    --text-secondary: rgba(28, 30, 36, 0.84);
+    --text-tertiary: rgba(28, 30, 36, 0.64);
+    --text-muted: rgba(28, 30, 36, 0.5);
     --text-hover: #111214;
     --accent: #4a8fc4;
     --accent-hover: #3d7fb4;
