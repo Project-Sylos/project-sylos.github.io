@@ -1,16 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="obsidian">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sylos Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../styles.css">
+    <script src="../theme.js"></script>
 </head>
 <body>
-    <div class="background-generated" aria-hidden="true"></div>
+    <div class="sylos-bg-container" aria-hidden="true"></div>
 
     <main class="blog-page">
         <div class="container">
@@ -24,9 +22,9 @@
             </header>
 
             <div class="blog-list">
-                <a href="how-we-use-duckdb.html" class="blog-post-card">
+                <a href="durable-task-engine.html" class="blog-post-card">
                     <h2>A Durable Local Task Engine for Dynamically Expanding Workloads</h2>
-                    <p>Discrete BFS task processing, Appender writes, append-only events, keyset pulls, and the pull-lease-process loop behind Sylos migration.</p>
+                    <p>Discrete BFS task processing, Badger ops store, trusted seal batches, frontier pulls, and the pull-lease-process loop behind Sylos migration.</p>
                     <span class="blog-post-card-link">Read article &rarr;</span>
                 </a>
                 <a href="spectra.html" class="blog-post-card">

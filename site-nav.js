@@ -3,7 +3,14 @@
         return location.pathname.includes("/blog/") ? "../" : "";
     }
 
-    function injectDrawer() {
+    function currentLogoSrc(prefix) {
+        if (window.SylosTheme && typeof window.SylosTheme.logoSrc === "function") {
+            return window.SylosTheme.logoSrc(window.SylosTheme.get());
+        }
+        return prefix + "assets/logos/sylos-wordmark-obsidian.png";
+    }
+
+    function injectChrome() {
         if (document.getElementById("site-drawer")) {
             return;
         }
@@ -12,7 +19,12 @@
         var isBlog = prefix === "../";
         var homeHref = prefix + "index.html";
         var blogHref = isBlog ? "index.html" : "blog/index.html";
-        var logoSrc = prefix + "assets/logos/main-app-logo-transparent.png";
+        var logoSrc = currentLogoSrc(prefix);
+        var theme = window.SylosTheme ? window.SylosTheme.get() : "obsidian";
+        var nextLabel = theme === "quartz" ? "Dark" : "Light";
+        var nextFull = theme === "quartz" ? "Switch to dark theme" : "Switch to light theme";
+        var nextIcon = theme === "quartz" ? "☾" : "☀";
+        var pressed = theme === "quartz" ? "true" : "false";
 
         var root = document.createElement("div");
         root.innerHTML =
@@ -21,20 +33,58 @@
             '  <span class="nav-toggle-bar" aria-hidden="true"></span>' +
             '  <span class="nav-toggle-bar" aria-hidden="true"></span>' +
             "</button>" +
+            '<button type="button" class="theme-toggle" data-theme-toggle aria-label="' +
+            nextFull +
+            '" title="' +
+            nextFull +
+            '" aria-pressed="' +
+            pressed +
+            '">' +
+            '  <span class="theme-toggle-icon" data-theme-toggle-icon aria-hidden="true">' +
+            nextIcon +
+            "</span>" +
+            '  <span class="theme-toggle-label" data-theme-toggle-label>' +
+            nextLabel +
+            "</span>" +
+            "</button>" +
             '<div class="nav-overlay" id="nav-overlay" hidden></div>' +
             '<aside id="site-drawer" class="site-drawer" aria-hidden="true">' +
             '  <div class="site-drawer-panel">' +
             '    <div class="site-drawer-header">' +
-            '      <a href="' + homeHref + '" class="site-drawer-logo" aria-label="Home" title="Home">' +
-            '        <img src="' + logoSrc + '" alt="Sylos">' +
+            '      <a href="' +
+            homeHref +
+            '" class="site-drawer-logo" aria-label="Home" title="Home">' +
+            '        <img src="' +
+            logoSrc +
+            '" alt="Sylos" data-sylos-logo>' +
             "      </a>" +
             '      <button type="button" class="site-drawer-close" id="nav-close" aria-label="Close navigation">&times;</button>' +
             "    </div>" +
             '    <nav class="site-drawer-nav" aria-label="Site">' +
             '      <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="site-drawer-link">Source code</a>' +
-            '      <a href="' + homeHref + '#community" class="site-drawer-link">Community</a>' +
-            '      <a href="' + blogHref + '" class="site-drawer-link">Blog</a>' +
+            '      <a href="' +
+            homeHref +
+            '#community" class="site-drawer-link">Community</a>' +
+            '      <a href="' +
+            blogHref +
+            '" class="site-drawer-link">Blog</a>' +
             "    </nav>" +
+            '    <div class="site-drawer-footer">' +
+            '      <button type="button" class="site-drawer-theme" data-theme-toggle aria-label="' +
+            nextFull +
+            '" title="' +
+            nextFull +
+            '" aria-pressed="' +
+            pressed +
+            '">' +
+            '        <span data-theme-toggle-icon aria-hidden="true">' +
+            nextIcon +
+            "</span>" +
+            "        <span data-theme-toggle-label>" +
+            nextLabel +
+            " mode</span>" +
+            "      </button>" +
+            "    </div>" +
             "  </div>" +
             "</aside>";
 
@@ -51,6 +101,20 @@
             var linkKey = element.getAttribute("data-link");
             if (CONFIG.links[linkKey]) {
                 element.href = CONFIG.links[linkKey];
+            }
+        });
+    }
+
+    function populateExternalIcons() {
+        if (typeof CONFIG === "undefined" || !CONFIG.externalIcons) {
+            return;
+        }
+        var base = CONFIG.externalIcons.base || "";
+        var files = CONFIG.externalIcons.files || {};
+        document.querySelectorAll("[data-external-icon]").forEach(function (img) {
+            var key = img.getAttribute("data-external-icon");
+            if (files[key]) {
+                img.src = base + files[key];
             }
         });
     }
@@ -105,8 +169,12 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        injectDrawer();
+        injectChrome();
         populateConfigLinks();
+        populateExternalIcons();
         initDrawer();
+        if (window.SylosTheme && typeof window.SylosTheme.refreshControls === "function") {
+            window.SylosTheme.refreshControls();
+        }
     });
 })();

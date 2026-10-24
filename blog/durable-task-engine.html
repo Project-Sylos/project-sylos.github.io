@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="obsidian">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Durable Local Task Engine for Dynamically Expanding Workloads</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../theme.js"></script>
+</head>
+<body>
+    <div class="sylos-bg-container" aria-hidden="true"></div>
+
+    <main class="blog-page">
+        <div class="container">
+            <nav class="blog-nav" aria-label="Blog navigation">
+                <a href="index.html" class="blog-back-link">&larr; All posts</a>
+            </nav>
+
+            <article class="blog-article">
+                <div class="blog-prose">
+                    <h1>A Durable Local Task Engine for Dynamically Expanding Workloads</h1>
+                    <p class="paper-meta">Design notes from the Sylos migration engine &middot; October 2026</p>
+                    <p class="paper-disclosure"><strong>Note on authorship.</strong> The prose on this page was produced with AI assistance for raw text generation, then heavily reviewed, edited, and guided by the author for accuracy and quality.</p>
+
+                    <p class="paper-lead">
+                        Sylos is a breadth-first filesystem migration tool. This note is about the task engine behind it. The same pattern applies anywhere running a task can create more tasks: you need a durable local queue that can grow without blowing up memory or treating the database as the live scheduler on every pull.
+                    </p>
+                    <p>
+                        Workers do not recurse in-process. Each task handles one item, persists any children, and stops. That child work is picked up in a later <strong>round</strong> (in Sylos, the next BFS depth level). Scheduling, leasing, and retries live in an in-memory queue. The per-migration <strong>Badger ops store</strong> (<code>{id}.ops/</code>) is the operational source of truth you refill from and seal into, not the frontier itself for the active round.
+                    </p>
+                    <p>
+                        Below: the pull-lease-process-seal loop, the Badger patterns that make it practical at scale (trusted seal batches, catalog vs status overlay vs frontier keys, and planned review search), dual-tree coordination, and a short rebuttal of approaches that look simpler until the constraints bite.
+                    </p>
+
+                    <hr>
+
+                    <h2>1. Problem</h2>
+                    <p>
+                        A task runs, discovers child tasks, and schedules them. At scale this is not a fixed queue size. Generation can outpace consumption for long stretches, especially when one listing expands into hundreds of pending items. If pending work lives only in process memory, the backlog grows until the process fails.
+                    </p>
+                    <p>
+                        The engine must therefore <strong>write results and read the next batch of pending work from the same store</strong>, survive restarts, and avoid duplicate traversal. Pure in-memory scheduling is fast but not resumable. Per-node synchronous database round-trips do not reach millions of items. The design target is a local, durable task queue with dynamically expanding work, not a distributed stream processor.
+                    </p>
+
+                    <h2>2. Engine loop</h2>
+                    <p>
+                        Each worker handles one node per task: list immediate children, persist results, stop. Children become new tasks for a later <strong>round</strong> (the next BFS depth level), not on the worker's call stack. Depth is carried in the queue, not in recursion. That matters for skewed trees (one branch with millions of descendants, a sibling with none): a worker must not recurse in-process and pin work that other workers could take.
+                    </p>
+                    <p>
+                        Filters are a separate concern. Exclusion rulesets run over the already-discovered inventory during review; they do not steer BFS while discovery is listing children.
+                    </p>
+                    <p>
+                        The runtime loop:
+                    </p>
+                    <ol>
+                        <li><strong>Pull</strong> a bounded batch of pending work from Badger (<code>pend:*</code> keyset by depth and type, with batched node/status prefetch; §2.4).</li>
+                        <li><strong>Lease</strong> them into an in-memory queue for workers.</li>
+                        <li><strong>Process</strong> each item (list, discover children, copy, or delete).</li>
+                        <li><strong>Buffer</strong> catalog inserts, status overlays, frontier deltas, and related side effects into the seal buffer; flush that buffer to Badger on a row/time threshold, under backpressure, or before round advance (§2.1).</li>
+                        <li>Advance the pull cursor and repeat. On soft suspend or crash recovery, restore round cursors and pull again from Badger.</li>
+                    </ol>
+
+                    <pre><code>                 +------------------+
+                 |  Badger ops store|
+                 |  {id}.ops/       |
+                 |  node / st / pend|
+                 +--------+---------+
+                          ^
+                          |
+                 Trusted seal flush
+                          ^
+                          |
+                 +--------+---------+
+                 |   Seal Buffer    |
+                 +--------+---------+
+                          ^
+                          |
+                 +--------+---------+
+                 |     Workers      |
+                 +--------+---------+
+                          ^
+                          |
+                 +--------+---------+
+                 | In-Memory Lease  |
+                 |      Queue       |
+                 +--------+---------+
+                          ^
+                          |
+                 +--------+---------+
+                 |  Keyset pulls    |
+                 |  pend:* + prefetch|
+                 +------------------+</code></pre>
+
+                    <h3>2.1 Seal buffer and trusted batches</h3>
+                    <p>
+                        Workers never open a Badger write transaction per tiny completion on the hot path. Completions, discoveries, status updates, frontier deltas, kids packs, and related rows land in an in-memory <strong>seal buffer</strong> shared by the phase. The buffer drains on a row threshold, a short timer, backpressure (hard cap), or an explicit flush before round advance. That drain is what makes "millions of tasks" compatible with one embedded store: the hot path is enqueue-to-memory; the disk path is bulk.
+                    </p>
+                    <p>
+                        Flushes call a <strong>trusted</strong> batch writer. The flush path does not probe Badger for whether a pending key already exists or what the prior status row was. Callers supply that context from the task (<code>InsertOnly</code>, <code>PrevStatus</code>, <code>PendWasSet</code>). Probes on every sealed row would kill throughput; trust plus batching keeps discovery and copy CPU on FS I/O and queue leasing.
+                    </p>
+                    <p>
+                        Hard caps matter. If seal cannot keep up, producers block. That backpressure is intentional: you do not silently grow an unbounded in-memory backlog while pretending the durable log is still the safety net.
+                    </p>
+
+                    <h3>2.2 Schema mental model</h3>
+                    <p>
+                        You do not need every key prefix memorized. These families matter day to day:
+                    </p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Family</th>
+                                <th>Plain English</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>node:…</code></td>
+                                <td>Catalog row for one SRC or DST item (path, name, size, …).</td>
+                            </tr>
+                            <tr>
+                                <td><code>st:…</code></td>
+                                <td>Phase-split status overlay (traversal / copy / delete) for that item.</td>
+                            </tr>
+                            <tr>
+                                <td><code>pend:…</code></td>
+                                <td>Still-need-to-work frontier keys, ordered by depth and type.</td>
+                            </tr>
+                            <tr>
+                                <td><code>child:</code> / <code>kids:</code></td>
+                                <td>Tree edges and packed child snapshots for a parent.</td>
+                            </tr>
+                            <tr>
+                                <td><code>idx:…</code></td>
+                                <td>Secondary indexes for path, name, size, mtime, segments, trigrams.</td>
+                            </tr>
+                            <tr>
+                                <td><code>map:…</code></td>
+                                <td>SRC↔DST identity pairing after copy.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p>
+                        Catalog and status are <strong>separate on purpose</strong>: discovery can stamp many nodes; later phases rewrite status (and sometimes frontier) without rewriting the whole catalog row every time. Indexes for later search are written when catalog nodes are inserted, not in a giant end-of-phase rebuild.
+                    </p>
+                    <p>
+                        There is no per-migration DuckDB. The logical path <code>{id}.db</code> is a historical marker name only. Queues, review UI, resume, and stats all go through Badger.
+                    </p>
+
+                    <h3>2.3 Status overlay and frontier</h3>
+                    <p>
+                        Node metadata is written as catalog rows. State changes update the status overlay and adjust frontier keys. Mid-round, workers seal status transitions and enqueue the next depth's <code>pend:*</code> entries through the same buffer. There is no separate "materialize current status" step at round boundaries: the overlay and frontier <em>are</em> the current view.
+                    </p>
+                    <p>
+                        That is the physical-model change from an earlier DuckDB design, which appended status events and rebuilt a slim one-row-per-item table each round. The control loop stayed the same; Badger's key layout made a live overlay and sorted frontier the simpler fit than SQL event compaction.
+                    </p>
+                    <div class="paper-note">
+                        <p><strong>Consistency model.</strong></p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Layer</th>
+                                    <th>Role during round <em>N</em></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Lease buffer + in-progress set</td>
+                                    <td>Truth for what is live this round</td>
+                                </tr>
+                                <tr>
+                                    <td>Badger <code>node</code> / <code>st</code> / <code>pend</code></td>
+                                    <td>Truth for what exists; durable frontier and resume</td>
+                                </tr>
+                                <tr>
+                                    <td>Seal buffer → trusted flush</td>
+                                    <td>Async write path; forced before round advance / soft suspend</td>
+                                </tr>
+                                <tr>
+                                    <td><code>idx:*</code> + review planner</td>
+                                    <td>Candidate sets for path review / search (read path)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p>Deliberate tradeoff: Badger can still show more pending frontier than memory during a round until the next flush. Cursor discipline and in-memory completion prevent double work.</p>
+                    </div>
+
+                    <h3>2.4 Keyset batch pulls</h3>
+                    <p>
+                        Pending work is fetched in batches sized for the lease queue (on the order of thousands of tasks per refill, not "everything still pending"). Pulls seek the frontier by depth, type, and cursor, not <code>OFFSET</code> over a giant pending list, and prefetch node and status fields in the same batched APIs. Destination rounds add expected SRC children for comparison, with a separate hydration cap so dual-tree expected maps do not blow RSS.
+                    </p>
+                    <p>
+                        The queue does not need live global "count still pending in the DB" to stay correct. Round completion is driven by <strong>in-memory state</strong> (empty lease buffer, nothing in progress, last pull partial, at least one pull attempted), not a follow-up aggregate over the store. The cursor advances to the last <strong>enqueued</strong> id. Once leased into memory, an id is not pulled again for that attempt lifecycle.
+                    </p>
+                    <p>
+                        Soft suspend clears the in-memory lease buffer and in-flight set, flushes seal, and keeps Badger. Resume restores round numbers and keyset cursors, then pulls again. Leased task IDs are not persisted as a separate lease log; the frontier in Badger is what you come back to.
+                    </p>
+                    <p>
+                        Rule of thumb on the hot path: prefetch in batched pull/list APIs, compare in memory, and only append to the seal buffer. Do not fetch a node by id inside a per-item completion loop.
+                    </p>
+
+                    <h3>2.5 Task retries and leasing</h3>
+                    <p>
+                        <strong>What about task retries?</strong> Retries are handled entirely inside the lease queue. The store is not re-queried to discover that a task needs another attempt. A row is pulled from Badger into the queue once; from there the queue owns its lifecycle until the task succeeds or is exhausted.
+                    </p>
+                    <p>
+                        Workers do not take tasks directly from the database. They ask the queue for work. The queue mutex-locks a task for one attempt at a time. On each attempt, whether it succeeds or fails, the worker pushes results into the seal buffer so progress is persisted and resumable if the process crashes mid-retry. If the attempt succeeds, or fails after the configured maximum, the queue records the final outcome and removes the task. If the attempt fails but retries remain, the queue records the attempt, unlocks the task, and another worker can pick it up.
+                    </p>
+                    <p>
+                        The queue is the authority on leasing. Workers report attempt completion; they do not decide unilaterally when a task leaves the active set. That keeps retry state out of the hot pull path and consistent with the memory-first scheduling model in §2.4.
+                    </p>
+
+                    <h2>3. Dual-tree coordination</h2>
+                    <p>
+                        Migration compares two trees. Destination work depends on what the source has already discovered at the corresponding levels. The source queue may run as far ahead as workers allow; frontier and catalog seal into Badger as it goes. The destination may start round <em>N</em> only after the source has completed rounds <em>N</em> and <em>N+1</em> (or source traversal is finished): a two-round lead so parent and child context exist before DST comparison tasks are built.
+                    </p>
+                    <p>
+                        Finer-grained gating per subtree is possible. Round-level gating was chosen for simpler invariants and resume behavior at the cost of slightly conservative destination pacing.
+                    </p>
+                    <div class="paper-note">
+                        <p><strong>Note.</strong> The destination queue and coordinator exist for two-tree comparison. Single-graph workloads drop that layer:</p>
+                        <p>Pull → Lease → Process → Seal → repeat.</p>
+                    </div>
+
+                    <h2>4. Review: batch on write, plan on read</h2>
+                    <p>
+                        Between phases, the UI browses and searches the discovered tree. Those screens are read-mostly against Badger: folder children, merged SRC/DST review rows, status overlays, and keyset pagination. Mutations during review (exclude, mark retry, delete skip) still go through sealed status and frontier updates. They are not a separate staging table.
+                    </p>
+                    <p>
+                        Arbitrary search is planned, not "scan every node every time":
+                    </p>
+                    <ol>
+                        <li>Look at the query (path segments, name contains, size/mtime bounds, status filters, …).</li>
+                        <li>Pick the cheapest candidate source among secondary indexes (path, segments, trigrams, size/mtime) or a capped status walk.</li>
+                        <li>Hydrate those ids into node + status records.</li>
+                        <li>Apply remaining predicates in Go and page the results.</li>
+                    </ol>
+                    <p>
+                        Path search is ordered folder parts, not free-form "substring anywhere in the path." Name substring uses trigrams. Ruleset path operators (<code>contains</code> / <code>glob</code> / <code>regex</code>) are a third system used for exclusion predicates; they are intentionally separate from the review search bar.
+                    </p>
+                    <p>
+                        Closing rule of thumb: <strong>batch on the write path, plan on the read path, and treat <code>{id}.ops/</code> as the source of truth.</strong>
+                    </p>
+
+                    <h2>5. Evaluation</h2>
+                    <p>
+                        Benchmarks use <a href="spectra.html">Spectra</a> for reproducible trees without real I/O; see the <a href="spectra.html">Spectra design note</a> for the harness. On live storage, throughput is dominated by disk and API limits for any engine that streams bytes. Under Spectra ephemeral mode, persistence, events, and dual-tree coordination show up as measurable engine overhead relative to a tool that does not carry the same guarantees.
+                    </p>
+
+                    <h2>6. Couldn't you just&hellip;?</h2>
+                    <p>
+                        The shape above is not the first thing we tried. Most "obvious" database approaches fail against a tight constraint set: tables that must scale to at least <strong>~20M rows</strong>, a <strong>local embedded</strong> store (no separate DB server), <strong>very fast writes</strong> on the hot paths (traversal and copy), and <strong>acceptably fast reads</strong> afterward. Writes and reads are slightly separated workloads, but the review phase still does large subtree updates and those have to finish in an acceptable amount of time. Memory complexity, time complexity, and developer complexity all matter: something that works at a few hundred thousand rows, or only if you keep the frontier in RAM, does not count.
+                    </p>
+
+                    <h3>Why not Postgres (or any server SQL database)?</h3>
+                    <p>
+                        Postgres is an excellent general-purpose database. It is the wrong packaging for this product. Sylos is meant to run as a self-hosted appliance beside the filesystems it migrates: one process, one migration directory, resume after a reboot without standing up a database server, connection pool, backups, and upgrade story next to the engine. A remote SQL server also turns every seal flush and frontier refill into network-bound work on a path that already has to keep up with listing and copy throughput.
+                    </p>
+                    <p>
+                        You <em>could</em> ship an embedded Postgres fork or require operators to bring their own instance. That buys a familiar query language at the cost of operational surface area this engine is trying not to own. The durable queue here is an implementation detail of migration, not a shared data platform.
+                    </p>
+
+                    <h3>Why not just use an embedded SQL database?</h3>
+                    <p>
+                        SQLite and DuckDB are the natural next guesses once you reject a server. We went down that road: SQL schemas, bulk appenders, status tables, and keyset pulls expressed as queries. SQL is great for ad-hoc review predicates and for getting a prototype honest about joins and filters. It is a weaker fit when the hot path is "append thousands of discoveries, then seek the next thousand pending frontier keys" under a single writer that must not become the scheduler.
+                    </p>
+                    <p>
+                        Two failure modes showed up repeatedly. First, treating pending work as <code>SELECT … WHERE status = pending</code> (with or without fancy aggregates) makes the database the live lease oracle; under fast flushes that shape got brittle and expensive at tens of millions of rows. Second, the temptation to let the planner join whole node and status relations on every refill looks clean in a notebook and becomes a throughput cliff when each pull only needed a bounded window. The control loop that survived (seal buffer, keyset frontier, memory-first round completion) did not need a SQL runtime underneath it. Badger's sorted keys and batched transactions match that loop more directly.
+                    </p>
+
+                    <h3>Why an LSM instead of a B+tree?</h3>
+                    <p>
+                        An earlier version of this engine ran on BoltDB (a B+tree with copy-on-write pages) and tried to buy read speed with hand-built secondary indexes: membership buckets per status per level, a reverse status-lookup bucket, and bidirectional <code>src-to-dst</code> / <code>dst-to-src</code> join buckets. Each status transition touched several buckets atomically. Reads of known shapes were fast. Write scale was not.
+                    </p>
+                    <p>
+                        As a B+tree grows, write amplification climbs: each insert or update touches more pages for splits and rebalancing, and Bolt's COW path rewrites those pages on the way down. Past roughly 200K entries on the central nodes bucket, inserts and updates crossed into multi-second territory. Partitioning bought a temporary reprieve and roughly 10× more developer complexity, then the same wall per partition. A larger stress test (~40M source nodes, ~20M destination) grew the file to roughly 100GB: empty membership values meant per-entry overhead dominated the payload, multi-bucket writes stacked amplification on COW, and with no background compaction that bloat stayed until a manual rewrite.
+                    </p>
+                    <p>
+                        Badger is still a key/value store with secondary indexes; we did not abandon that idea. The difference is the write path: an LSM with a value log absorbs the seal-buffer bulk-append pattern, and compaction reclaims space in the background. Indexes are written on catalog insert and selected by a small planner; they have to earn their keep, but the engine no longer pays B+tree COW amplification on every hot status transition.
+                    </p>
+
+                    <h3>Make the database the live task scheduler?</h3>
+                    <p>
+                        The classic shape (insert a row, <code>SELECT</code> pending work, <code>UPDATE</code> status when done) failed at volume when that table was also the lease oracle. Prototyping hit throughput walls around hundreds of thousands of rows on Bolt, SQLite, and DuckDB when updates dominated and every refill asked the store what was still pending.
+                    </p>
+                    <p>
+                        The current design still mutates status, but as a sealed overlay beside a sorted frontier, flushed in trusted batches, with the lease queue owning the active round. The rejected shape is not "ever overwrite a status key." It is "make the database the live scheduler on every pull."
+                    </p>
+
+                    <h3>Keep the frontier in memory?</h3>
+                    <p>
+                        This is the obvious first choice, and it looks like it works until you implement it. A prototype held the current source level and its children in RAM until the destination consumed them. If the source ran ahead, the cache grew faster than the destination could drain it. Gating the source per level capped growth but still required roughly two frontier levels in memory at once.
+                    </p>
+                    <p>
+                        The deeper problem is that RAM does not buy you out of durability. Resumability still requires periodic flushes into the store, so the write cost is only deferred, not removed. Producers (workers finishing tasks) can outrun the consumer (flushing the seal buffer to disk), which is a leaky-bucket problem: you keep going through a DB stall, then pay the same write throughput later with a larger backlog and less safety if the process dies mid-buffer. Under the 20M-row embedded constraint, the current design does not accept that trade. Badger holds the durable frontier; the lease queue is only the live scheduler for the active round.
+                    </p>
+
+                    <h2>7. Further reading</h2>
+                    <p>
+                        Implementation detail: <a href="https://github.com/Project-Sylos">GitHub</a>
+                    </p>
+                    <ul>
+                        <li><code>Migration-Engine/docs/ops_store_overview.md</code>: guided tour of the Badger ops store</li>
+                        <li><code>Migration-Engine/pkg/db</code>: key layout, seal buffer, trusted batch flush</li>
+                        <li><code>Migration-Engine/pkg/opsdb</code>: Badger primitives behind the facade</li>
+                        <li><code>Migration-Engine/pkg/queue</code>: lease queue, batch refill, coordinator, soft suspend / resume</li>
+                        <li><code>Migration-Engine/docs/algorithms.md</code>: BFS traversal, copy, delete</li>
+                        <li><code>Migration-Engine/docs/search_indexes.md</code>: path segments, trigrams, review planner</li>
+                        <li><a href="spectra.html">Spectra</a> (<a href="https://github.com/Project-Sylos/Spectra">repo</a>)</li>
+                    </ul>
+                    <p>
+                        Package READMEs and the ops-store overview are the authoritative reference. This page is a design summary, not a spec.
+                    </p>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Sylos. Open source and self-hosted.</p>
+            <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
+        </div>
+    </footer>
+    <script src="../config.js"></script>
+    <script src="../site-nav.js"></script>
+</body>
+</html>

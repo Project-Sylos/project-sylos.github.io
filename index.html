@@ -1,120 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="obsidian">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sylos - Self-Hosted Data Migration Tool</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Sylos</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
     <script src="config.js"></script>
 </head>
 <body>
-    <!-- Other backgrounds: swap this div for <video class="background-video">… or a static <img> if you prefer -->
-    <div class="background-generated" aria-hidden="true"></div>
+    <div class="sylos-bg-container" aria-hidden="true"></div>
 
     <main>
-        <!-- Hero Section: What is this? -->
-        <section class="hero">
+        <!-- Hero + product preview (carousel visible on first paint) -->
+        <section class="hero" id="preview">
             <div class="container">
-                <img src="assets/logos/main-app-logo-transparent.png" alt="Sylos" class="hero-logo" data-scroll-reveal>
-                <p class="tagline" data-scroll-reveal style="--reveal-delay: 0.12s">
+                <img src="assets/logos/sylos-wordmark-obsidian.png" alt="Sylos" class="hero-logo" data-sylos-logo>
+                <p class="tagline">
                     Move your files from cloud to cloud, drive to drive, or anywhere in between.
                 </p>
-            </div>
-        </section>
-
-        <!-- Why Section: Why would I use it? -->
-        <section id="features" class="why-section">
-            <div class="container">
-                <h2 data-scroll-reveal>Why Sylos?</h2>
-                <div class="features-grid" data-scroll-reveal-scope>
-                    <div class="feature-card">
-                        <h3>Completely Free</h3>
-                        <p>No subscriptions, no hidden fees, no limits. Sylos is open source and free forever. Use it as much as you need.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>Blazing Fast</h3>
-                        <p>Move your files at maximum speed with optimized performance that makes large migrations feel effortless.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>Complete Privacy</h3>
-                        <p>Your data never leaves your control. Everything runs on your own machines. No cloud services, no third parties.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>Preview Before You Move</h3>
-                        <p>See exactly what will change before anything happens. Review differences, filter what you want, then execute with confidence.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>Never Lose Progress</h3>
-                        <p>Pause anytime and resume exactly where you left off. Your migrations survive interruptions, crashes, and restarts.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h3>Smart Filtering</h3>
-                        <p>Filter by file type, folder depth, or use powerful regex patterns. Control exactly what gets moved and what stays behind.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="preview" class="preview-section" aria-labelledby="preview-heading">
-            <div class="container">
-                <h2 id="preview-heading" data-scroll-reveal>See it in action</h2>
-                <div class="demo-carousel" data-demo-carousel data-scroll-reveal tabindex="0" role="region" aria-label="Sylos interface screenshots">
+                <div class="demo-carousel" data-demo-carousel tabindex="0" role="region" aria-label="Sylos interface screenshots">
                     <div class="demo-carousel-shell">
                         <div class="demo-carousel-viewport">
                             <div class="demo-carousel-track" data-demo-track>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/1_start_page_dark.png" alt="Sylos start page" loading="lazy" decoding="async">
-                                    </div>
-                                    <figcaption class="demo-slide-caption">Start page</figcaption>
-                                </figure>
-                                <figure class="demo-slide" data-demo-slide>
-                                    <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/2_select_your_migration_dark.png" alt="Selecting a migration" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/1_select_your_migration_dark.png" data-theme-screenshot="assets/demo_assets/1_select_your_migration.png" alt="Selecting a migration" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Start a new migration or resume where you left off.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/3_resume_a_migration_dark.png" alt="Resuming a migration" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/2_resume_a_migration_dark.png" data-theme-screenshot="assets/demo_assets/2_resume_a_migration.png" alt="Resuming a migration" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Manage your session history and pick up where you left off previously.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/4_discovery_progress_page_dark.png" alt="Discovery progress" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/3_discovery_progress_page_dark.png" data-theme-screenshot="assets/demo_assets/3_discovery_progress_page.png" alt="Discovery progress" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Stay in the loop with real-time progress and status updates during the discovery and copy phases.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/5_traversal_review_tree_view_dark.png" alt="Traversal review tree view" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/4_traversal_review_tree_view_dark.png" data-theme-screenshot="assets/demo_assets/4_traversal_review_tree_view.png" alt="Traversal review tree view" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Review the file tree and see the differences between the source and destination. Make adjustments to mark failed items to be retried or mark pending items to be excluded from the copy process.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <img src="assets/demo_assets/6_traversal_review_list_view_dark.png" alt="Traversal review list view" loading="lazy" decoding="async">
+                                        <img src="assets/demo_assets/5_traversal_review_list_view_dark.png" data-theme-screenshot="assets/demo_assets/5_traversal_review_list_view.png" alt="Traversal review list view" loading="lazy" decoding="async">
                                     </div>
                                     <figcaption class="demo-slide-caption">Search through for specific items, make adjustments to individual items or entire subtrees.</figcaption>
                                 </figure>
                                 <figure class="demo-slide" data-demo-slide>
                                     <div class="demo-slide-frame">
-                                        <div class="demo-slide-pair">
-                                            <div class="demo-slide-pair-item">
-                                                <img src="assets/demo_assets/7a_search_filters_in_list_view_dark.png" alt="Search filters in list view" loading="lazy" decoding="async">
-                                            </div>
-                                            <div class="demo-slide-pair-item">
-                                                <img src="assets/demo_assets/7b_sort_by_options_in_list_view_dark.png" alt="Sort options in list view" loading="lazy" decoding="async">
-                                            </div>
-                                        </div>
+                                        <img src="assets/demo_assets/6_search_filters_advanced_dark.png" data-theme-screenshot="assets/demo_assets/6_search_filters_advanced.png" alt="Advanced filter rules builder" loading="lazy" decoding="async">
                                     </div>
-                                    <figcaption class="demo-slide-caption">In list view, narrow results with search filters and reorder them with sort options so you can work through large sets in the order that makes sense for your review.</figcaption>
+                                    <figcaption class="demo-slide-caption">Search big folders with filters you control. Add or remove match rules (including regex), combine them with and/or logic, save or import/export rule sets for later migrations, and learn from built-in examples when you want a head start.</figcaption>
                                 </figure>
-            
                             </div>
                         </div>
                         <div class="demo-carousel-toolbar">
@@ -132,52 +76,212 @@
             </div>
         </section>
 
-        <!-- Organization page + Discord: single place for CTAs (header icons + cards below) -->
+        <!-- Supported filesystems / cloud connectors (brand logos from Sylos-UI via jsDelivr) -->
+        <section id="connectors" class="connectors-section" aria-labelledby="connectors-heading">
+            <div class="container">
+                <h2 id="connectors-heading" data-scroll-reveal>Supported file systems</h2>
+                <ul class="connectors-grid" data-scroll-reveal-scope>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+                            </svg>
+                        </span>
+                        <span class="connector-name">Local filesystem</span>
+                        <span class="connector-note">Physical drives, network drives, FUSE / WinFsp all supported</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>
+                                <rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>
+                                <line x1="6" x2="6.01" y1="6" y2="6"/>
+                                <line x1="6" x2="6.01" y1="18" y2="18"/>
+                            </svg>
+                        </span>
+                        <span class="connector-name">SFTP</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <img data-external-icon="google-drive" alt="" class="connector-logo" width="40" height="40" decoding="async">
+                        </span>
+                        <span class="connector-name">Google Drive</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <img data-external-icon="dropbox" alt="" class="connector-logo" width="40" height="40" decoding="async">
+                        </span>
+                        <span class="connector-name">Dropbox</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <img data-external-icon="onedrive" alt="" class="connector-logo" width="40" height="40" decoding="async">
+                        </span>
+                        <span class="connector-name">OneDrive</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <img data-external-icon="sharepoint" alt="" class="connector-logo" width="40" height="40" decoding="async">
+                        </span>
+                        <span class="connector-name">SharePoint</span>
+                    </li>
+                    <li class="connector-item">
+                        <span class="connector-icon" aria-hidden="true">
+                            <img data-external-icon="box" alt="" class="connector-logo" width="40" height="40" decoding="async">
+                        </span>
+                        <span class="connector-name">Box</span>
+                    </li>
+                    <li class="connector-item connector-item--request">
+                        <a href="" data-link="discussions" target="_blank" rel="noopener noreferrer" class="connector-request-link">
+                            <span class="connector-icon" aria-hidden="true">
+                                <svg class="connector-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M8 12h8"/>
+                                    <path d="M12 8v8"/>
+                                </svg>
+                            </span>
+                            <span class="connector-name">Don't see yours?</span>
+                            <span class="connector-note">No worries. Submit a request and we&rsquo;ll look at adding support.</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Why Section: Why would I use it? -->
+        <section id="features" class="why-section">
+            <div class="container">
+                <h2 data-scroll-reveal>Why Sylos?</h2>
+                <div class="features-grid" data-scroll-reveal-scope>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </div>
+                            <h3>Preview before anything moves</h3>
+                        </div>
+                        <p>See what will copy, skip, or change. Search big folders, tweak the plan, then start when you feel ready.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                <path d="M3 3v5h5"/>
+                            </svg>
+                        </div>
+                            <h3>Pick up where you left off</h3>
+                        </div>
+                        <p>Progress is saved on your computer. Pause, close the app, or hit a hiccup, then come back without starting over.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+                            </svg>
+                        </div>
+                            <h3>Goes as fast as it safely can</h3>
+                        </div>
+                        <p>Speeds itself up automatically, without slamming into cloud limits or overloading your computer.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                                <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/>
+                                <path d="M7 21h10"/>
+                                <path d="M12 3v18"/>
+                                <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
+                            </svg>
+                        </div>
+                            <h3>Catches awkward file names</h3>
+                        </div>
+                        <p>Spots names that would break on another drive or cloud, suggests better ones, and lets you fix them all at once.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon feature-icon--privacy" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M5 7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v1a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V7Z"/>
+                                <path d="M8 11v2a4 4 0 0 0 8 0v-2"/>
+                                <path d="M9.5 6.5 9 3h6l-.5 3.5"/>
+                                <circle cx="9" cy="8" r="0.5" fill="currentColor" stroke="none"/>
+                                <circle cx="15" cy="8" r="0.5" fill="currentColor" stroke="none"/>
+                            </svg>
+                        </div>
+                            <h3>Stays on your machines</h3>
+                        </div>
+                        <p>Your files never pass through our servers. It runs where you install it: free, open source, no subscription.</p>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-card-heading">
+                            <div class="feature-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                                <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                                <path d="M10 9H8"/>
+                                <path d="M16 13H8"/>
+                                <path d="M16 17H8"/>
+                            </svg>
+                        </div>
+                            <h3>Keeps a clear record</h3>
+                        </div>
+                        <p>Each move is a saved job you can look back on, not a one-and-done copy that forgets what it did.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Help / community links (aligned with Sylos-UI help widget) -->
         <section id="community" class="community-section">
             <div class="container">
                 <h2 data-scroll-reveal>Contributions &amp; Community</h2>
                 <div class="community-intro" data-scroll-reveal-scope>
                     <p>
-                        To contribute code or creative work, or to help test early releases, start at the GitHub organization. It links the rest of the project and stays the main entry point as we ship releases.
-                    </p>
-                    <p>
-                        We coordinate on Discord: roadmap, active work, bounties, and the conversations that make contributing and testing simpler. Testing notes and getting started usually appear there first. You do not need to be a developer to follow along. It is also the best place to ask questions before you take on a task or open a pull request.
+                        To contribute code or creative work, or to help test early releases, start at the
+                        <a href="" data-link="github" target="_blank" rel="noopener noreferrer">GitHub organization</a>.
+                        It serves as a hub for all things Sylos related.
                     </p>
                 </div>
                 <div class="community-grid community-grid-three" data-scroll-reveal-scope>
-                    <a href="" data-link="github" target="_blank" rel="noopener noreferrer" class="community-card">
-                        <div class="icon">
-                            <img src="assets/logos/GitHub_Invertocat_White.svg" alt="Github" class="community-icon-img">
+                    <a href="" data-link="wiki" target="_blank" rel="noopener noreferrer" class="community-card">
+                        <div class="icon" aria-hidden="true">
+                            <svg class="community-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 7v14"/>
+                                <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+                            </svg>
                         </div>
-                        <h3>Github Organization Page</h3>
-                        <p>Source, related repositories, and how to contribute.</p>
+                        <h3>Sylos Wiki</h3>
+                        <p>Documentation, setup guides, and usage help</p>
                     </a>
-                    <a href="" data-link="discord" target="_blank" rel="noopener noreferrer" class="community-card">
-                        <div class="icon">
-                            <img src="assets/logos/discord-transparent-white.png" alt="Discord" class="community-icon-img">
+                    <a href="" data-link="issues" target="_blank" rel="noopener noreferrer" class="community-card">
+                        <div class="icon" aria-hidden="true">
+                            <svg class="community-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" x2="12" y1="8" y2="12"/>
+                                <line x1="12" x2="12.01" y1="16" y2="16"/>
+                            </svg>
                         </div>
-                        <h3>Discord</h3>
-                        <p>Roadmap, active issues, and chat with contributors. Recommended if you want to follow along or help.</p>
+                        <h3>Report a bug</h3>
+                        <p>File an issue on the Sylos hub repository</p>
                     </a>
-                    <a href="blog/index.html" class="community-card community-card--internal">
-                        <div class="icon community-icon-text" aria-hidden="true">✦</div>
-                        <h3>Blog</h3>
-                        <p>Engineering design notes on architecture, tradeoffs, and how the migration engine was built.</p>
+                    <a href="" data-link="discussions" target="_blank" rel="noopener noreferrer" class="community-card">
+                        <div class="icon" aria-hidden="true">
+                            <svg class="community-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                <path d="M8 10h.01"/>
+                                <path d="M12 10h.01"/>
+                                <path d="M16 10h.01"/>
+                            </svg>
+                        </div>
+                        <h3>Discussions</h3>
+                        <p>Need to talk something through? Start a discussion with the community</p>
                     </a>
-                    <!--
-                    <a href="" data-link="documentation" class="community-card">
-                        <div class="icon">📚</div>
-                        <h3>Documentation</h3>
-                        <p>User guides and getting started tutorials</p>
-                        <span class="badge">Coming Soon</span>
-                    </a>
-                    <a href="" data-link="downloads" class="community-card">
-                        <div class="icon">⬇️</div>
-                        <h3>Downloads</h3>
-                        <p>Get the latest releases</p>
-                        <span class="badge">Coming Soon</span>
-                    </a>
-                    -->
                 </div>
             </div>
         </section>
@@ -190,41 +294,29 @@
                         <summary class="faq-summary">Why not just use Rclone?</summary>
                         <div class="faq-item-body">
                             <p>
-                                Rclone is an excellent fit for scheduled sync, mounts, and everyday cloud work from the terminal.
+                                Rclone is great for fire-and-forget sync operations. Sylos is a completely different product however, it is not an Rclone GUI wrapper. It has its own way of moving files, its own connections, and its own workflow.
                             </p>
                             <p>
-                                Sylos is built around deliberate runs where you inspect a plan, execute, and keep queryable history of what happened. Small copies are fine; it matters most when the job is large or traceability really matters.
+                                The idea is careful moves: save your progress, look over the plan before anything is written, and keep a clear record of what happened.
                             </p>
-                            <ul>
-                                <li>
-                                    <strong>Resume without a full rescan.</strong> After an interrupt, continue from the last known state instead of walking the entire tree again from scratch.
-                                </li>
-                                <li>
-                                    <strong>Review before write.</strong> Copy, skip, and flag decisions are visible before any data moves.
-                                </li>
-                                <li>
-                                    <strong>SQL snapshots.</strong> Filesystem state lands in a migration database as you go, so you can audit, report, or build your own tooling on top.
-                                </li>
-                                <li>
-                                    <strong>UI by default.</strong> Sylos is designed around user workflows in a graphical app (or terminal interface). The database is still a natural integration point for custom or automated systems if needed.
-                                </li>
-                            </ul>
                         </div>
                     </details>
                     <details class="faq-item" open>
                         <summary class="faq-summary">What if I don't want to use a web based UI? What options do I have?</summary>
                         <div class="faq-item-body">
                             <p>
-                                First, we are working on a TUI interface for Sylos as we speak. It is currently pretty far in development already but we are aiming to have it ready for the first release.
+                                We are working on a Terminal UI interface for Sylos currently as an optional replacement to the web based UI for terminal savvy users. We are aiming to have it ready before the official Version 1.0 launch.
                             </p>
                             <p>
-                                Secondly, we plan on building out SDK functionality to support automated migrations and sync jobs later on. Scripting and automation is on the roadmap but will be after the initial release. So don't worry, we have you covered and are developing Sylos with this in mind.
+                                We also plan on building out SDK functionality to support automated migrations and sync jobs later on. Scripting and automation is on the roadmap but will be after the initial release.
                             </p>
                         </div>
                     </details>
                 </div>
             </div>
         </section>
+
+
     </main>
 
     <footer>
