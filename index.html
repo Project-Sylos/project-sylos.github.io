@@ -291,24 +291,32 @@
                 <h2 data-scroll-reveal>Frequently Asked Questions</h2>
                 <div class="faq-list" data-scroll-reveal-scope>
                     <details class="faq-item" open>
-                        <summary class="faq-summary">Why not just use Rclone?</summary>
+                        <summary class="faq-summary">Is this just a graphical user interface for Rclone?</summary>
                         <div class="faq-item-body">
                             <p>
-                                Rclone is great for fire-and-forget sync operations. Sylos is a completely different product however, it is not an Rclone GUI wrapper. It has its own way of moving files, its own connections, and its own workflow.
+                                No. Sylos is built from the ground up as its own application, with a unique file transfer engine and different workflows.
                             </p>
                             <p>
-                                The idea is careful moves: save your progress, look over the plan before anything is written, and keep a clear record of what happened.
-                            </p>
+                                Key differences include: Sylos gives you granular control over each operation, lets you preview, review, and save transfer plans before execution, and maintains detailed records for every action. Sylos also supports features and connection methods beyond those of Rclone and is designed for reliability, transparency, and human-friendly review.
+                            </p>                
                         </div>
                     </details>
                     <details class="faq-item" open>
-                        <summary class="faq-summary">What if I don't want to use a web based UI? What options do I have?</summary>
+                        <summary class="faq-summary">What if I don't want to use a web based UI?</summary>
                         <div class="faq-item-body">
                             <p>
                                 We are working on a Terminal UI interface for Sylos currently as an optional replacement to the web based UI for terminal savvy users. We are aiming to have it ready before the official Version 1.0 launch.
                             </p>
                             <p>
                                 We also plan on building out SDK functionality to support automated migrations and sync jobs later on. Scripting and automation is on the roadmap but will be after the initial release.
+                            </p>
+                        </div>
+                    </details>
+                    <details class="faq-item" open>
+                        <summary class="faq-summary">What is the stance on AI contributions?</summary>
+                        <div class="faq-item-body">
+                            <p>
+                                AI usage is allowed but we ask that the contributor fully understands the code they have submitted, as well as making sure the code is rigorously tested. We also ask that, if your contribution is user-facing, your contribution meets certain quality standards and does not seem like AI slop.
                             </p>
                         </div>
                     </details>
