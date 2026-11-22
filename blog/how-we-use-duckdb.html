@@ -3,11 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+(function () {
+  try {
+    var t = localStorage.getItem("sylos.theme");
+    if (!t) {
+      var m = document.cookie.match(/(?:^|; )sylos_theme=([^;]*)/);
+      t = m ? decodeURIComponent(m[1]) : "";
+    }
+    t = String(t || "").trim();
+    if (t !== "quartz" && t !== "obsidian") t = "obsidian";
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "obsidian");
+  }
+})();
+    </script>
+    <script src="../theme.js"></script>
     <title>Moved: Durable Local Task Engine</title>
     <meta http-equiv="refresh" content="0; url=durable-task-engine.html">
     <link rel="canonical" href="durable-task-engine.html">
     <link rel="stylesheet" href="../styles.css">
-    <script src="../theme.js"></script>
 </head>
 <body>
     <div class="sylos-bg-container" aria-hidden="true"></div>

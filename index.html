@@ -3,9 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+(function () {
+  try {
+    var t = localStorage.getItem("sylos.theme");
+    if (!t) {
+      var m = document.cookie.match(/(?:^|; )sylos_theme=([^;]*)/);
+      t = m ? decodeURIComponent(m[1]) : "";
+    }
+    t = String(t || "").trim();
+    if (t !== "quartz" && t !== "obsidian") t = "obsidian";
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "obsidian");
+  }
+})();
+    </script>
+    <script src="theme.js"></script>
     <title>Sylos</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="theme.js"></script>
     <script src="config.js"></script>
 </head>
 <body>
@@ -283,6 +299,23 @@
                         <p>Need to talk something through? Start a discussion with the community</p>
                     </a>
                 </div>
+                <a href="blog/index.html" class="community-blog-callout" data-scroll-reveal>
+                    <div class="community-blog-callout__icon" aria-hidden="true">
+                        <svg class="community-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                            <path d="M8 7h8"/>
+                            <path d="M8 11h8"/>
+                        </svg>
+                    </div>
+                    <div class="community-blog-callout__body">
+                        <h3>Engineering notes</h3>
+                        <p>
+                            Want the deeper technical write-ups on how Sylos is built?
+                            Browse the <span class="community-blog-callout__link">blog</span> for design notes and architecture posts.
+                        </p>
+                    </div>
+                </a>
             </div>
         </section>
 

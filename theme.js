@@ -1,30 +1,73 @@
 (function () {
     var STORAGE_KEY = "sylos.theme";
+    var COOKIE_NAME = "sylos_theme";
     var DEFAULT_THEME = "obsidian";
     var THEMES = { obsidian: true, quartz: true };
 
     function pathPrefix() {
-        return location.pathname.includes("/blog/") ? "../" : "";
+        var path = location.pathname || "";
+        return path.indexOf("/blog/") !== -1 || /\/blog\/?$/.test(path) ? "../" : "";
     }
 
     function normalizeTheme(value) {
+        if (value == null) {
+            return DEFAULT_THEME;
+        }
+        value = String(value).trim();
         return THEMES[value] ? value : DEFAULT_THEME;
+    }
+
+    function readCookieTheme() {
+        try {
+            var parts = String(document.cookie || "").split(";");
+            for (var i = 0; i < parts.length; i++) {
+                var part = parts[i].trim();
+                if (part.indexOf(COOKIE_NAME + "=") === 0) {
+                    return normalizeTheme(decodeURIComponent(part.slice(COOKIE_NAME.length + 1)));
+                }
+            }
+        } catch (e) {
+            /* ignore */
+        }
+        return null;
+    }
+
+    function writeCookieTheme(theme) {
+        try {
+            document.cookie =
+                COOKIE_NAME +
+                "=" +
+                encodeURIComponent(theme) +
+                "; path=/; max-age=31536000; SameSite=Lax";
+        } catch (e) {
+            /* ignore */
+        }
     }
 
     function readStoredTheme() {
         try {
-            return normalizeTheme(localStorage.getItem(STORAGE_KEY));
+            var fromLs = localStorage.getItem(STORAGE_KEY);
+            if (fromLs != null && String(fromLs).trim() !== "") {
+                return normalizeTheme(fromLs);
+            }
         } catch (e) {
-            return DEFAULT_THEME;
+            /* ignore quota / private mode */
         }
+        var fromCookie = readCookieTheme();
+        if (fromCookie) {
+            return fromCookie;
+        }
+        return DEFAULT_THEME;
     }
 
     function writeStoredTheme(theme) {
+        theme = normalizeTheme(theme);
         try {
             localStorage.setItem(STORAGE_KEY, theme);
         } catch (e) {
             /* ignore quota / private mode */
         }
+        writeCookieTheme(theme);
     }
 
     function logoSrcForTheme(theme) {
@@ -128,6 +171,11 @@
     // Apply before paint when this script runs in <head>
     applyTheme(readStoredTheme(), false);
 
+    // Back/forward cache and same-tab navigations can restore a stale attribute.
+    window.addEventListener("pageshow", function () {
+        applyTheme(readStoredTheme(), false);
+    });
+
     window.SylosTheme = {
         get: getTheme,
         set: setTheme,
@@ -151,6 +199,7 @@
     });
 
     document.addEventListener("DOMContentLoaded", function () {
+        applyTheme(readStoredTheme(), false);
         window.SylosTheme.refreshControls();
     });
 })();

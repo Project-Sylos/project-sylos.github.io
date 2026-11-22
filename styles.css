@@ -1183,6 +1183,63 @@ body.nav-drawer-open {
     z-index: 1;
 }
 
+.community-blog-callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    max-width: 1080px;
+    margin: 1.75rem auto 0;
+    padding: 1.5rem 1.75rem;
+    text-decoration: none;
+    color: inherit;
+    background: var(--surface-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--surface-radius);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.community-blog-callout:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-bg-hover);
+}
+
+.community-blog-callout__icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.15rem;
+}
+
+.community-blog-callout:hover .community-icon-svg {
+    color: var(--accent);
+}
+
+.community-blog-callout__body h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.35rem;
+    color: var(--text-primary);
+}
+
+.community-blog-callout__body p {
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 500;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+
+.community-blog-callout__link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.community-blog-callout:hover .community-blog-callout__link {
+    color: var(--accent-hover);
+}
+
 .badge {
     display: inline-block;
     margin-top: 0.75rem;
@@ -1727,6 +1784,14 @@ footer .footer-links a:hover {
     .community-grid-two,
     .community-grid-three {
         grid-template-columns: 1fr;
+    }
+
+    .community-blog-callout {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.85rem;
+        padding: 1.35rem 1.25rem;
     }
 
     .community-intro {
