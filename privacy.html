@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="obsidian">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — Sylos</title>
+    <meta name="description" content="Privacy policy for the Sylos app and website. Local-first; no Sylos central servers store your files or credentials.">
+    <link rel="stylesheet" href="styles.css">
+    <script src="theme.js"></script>
+</head>
+<body>
+    <div class="sylos-bg-container" aria-hidden="true"></div>
+
+    <main class="blog-page">
+        <div class="container">
+            <nav class="blog-nav" aria-label="Page navigation">
+                <a href="index.html" class="blog-back-link">&larr; Home</a>
+            </nav>
+
+            <article class="blog-article">
+                <div class="blog-prose">
+                    <h1>Privacy Policy</h1>
+                    <p class="paper-meta">Effective date: November 21, 2026</p>
+                    <p class="paper-lead">
+                        This page describes how Sylos handles information for the Sylos software and this website.
+                        It is written for clarity, not as legal advice.
+                    </p>
+
+                    <hr>
+
+                    <h2>Local-first software</h2>
+                    <p>
+                        Sylos is self-hosted migration software that runs only on machines you control.
+                        You choose the source and destination. Sylos reads files and metadata from services you connect
+                        and writes them where you choose. There is no Sylos-operated central server that stores
+                        your files, migration history, credentials, or user accounts.
+                    </p>
+
+                    <h2>What stays on your device</h2>
+                    <p>
+                        When you run Sylos, data related to the install lives locally on that machine, including:
+                    </p>
+                    <ul>
+                        <li>Application data under the OS app-data directory for Sylos (for example <code>org.sylos.app</code>)</li>
+                        <li>Local admin and user accounts you create for that install</li>
+                        <li>OAuth and SFTP credentials for cloud and remote hosts you connect</li>
+                        <li>Migration databases, settings, and operational state</li>
+                    </ul>
+                    <p>
+                        An install master key is stored in your operating system keyring. Per-migration secrets are wrapped
+                        and kept with that install’s local data.
+                    </p>
+                    <p>
+                        To remove local data, delete the Sylos application data directory for that install and/or uninstall
+                        the software. To revoke cloud access, use the provider’s account settings (for example Dropbox, Google,
+                        Microsoft, or Box) in addition to removing local credentials.
+                    </p>
+
+                    <h2>Third-party services</h2>
+                    <p>
+                        When you connect a cloud provider or other remote system, traffic goes between your machine and that
+                        provider. Those providers process data under their own privacy policies and terms. Sylos does not
+                        sit in the middle as a hosted relay for your files.
+                    </p>
+                    <p>
+                        Google Drive support expects you to use your own Google Cloud OAuth client (bring-your-own-app).
+                        Other providers may use Sylos-registered OAuth apps when the binary you run was built that way;
+                        you can still replace those credentials with your own in Settings.
+                    </p>
+
+                    <h2>What we do not collect</h2>
+                    <p>
+                        The Sylos project does not operate Sylos cloud accounts for you. The current product does not send
+                        telemetry, analytics, crash reports, or update checks to Sylos. File contents and credentials are
+                        not transmitted to Sylos project infrastructure as part of normal use.
+                    </p>
+
+                    <h2>This website</h2>
+                    <p>
+                        This site is a static site hosted on GitHub Pages. We do not run first-party analytics or advertising
+                        cookies on these pages. Visiting the site may still involve GitHub’s hosting infrastructure
+                        (for example standard web server logs). See
+                        <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener noreferrer">GitHub’s privacy statement</a>
+                        for how GitHub handles that.
+                    </p>
+
+                    <h2>Contact</h2>
+                    <p>
+                        Questions about this policy or the project:
+                    </p>
+                    <p>
+                        <a href="https://github.com/orgs/Project-Sylos/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a>
+                    </p>
+
+                    <h2>Changes</h2>
+                    <p>
+                        We may update this page as the product or site changes. When we do, we will change the effective date
+                        at the top of this page.
+                    </p>
+                </div>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Sylos. Open source and self-hosted.</p>
+            <p class="footer-links"><a href="privacy.html">Privacy</a></p>
+            <p class="alpha-notice">Early development. Features and APIs may change quickly.</p>
+        </div>
+    </footer>
+    <script src="config.js"></script>
+    <script src="site-nav.js"></script>
+</body>
+</html>

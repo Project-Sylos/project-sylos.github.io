@@ -8,6 +8,7 @@ const CONFIG = {
         issues: "https://github.com/Project-Sylos/Sylos/issues",
         discussions: "https://github.com/orgs/Project-Sylos/discussions",
         blog: "blog/index.html",
+        privacy: "privacy.html",
     },
     /*
      * Connector brand logos — single source of truth in Sylos-UI.

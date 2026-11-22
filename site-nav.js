@@ -19,6 +19,7 @@
         var isBlog = prefix === "../";
         var homeHref = prefix + "index.html";
         var blogHref = isBlog ? "index.html" : "blog/index.html";
+        var privacyHref = prefix + "privacy.html";
         var logoSrc = currentLogoSrc(prefix);
         var theme = window.SylosTheme ? window.SylosTheme.get() : "obsidian";
         var nextLabel = theme === "quartz" ? "Dark" : "Light";
@@ -68,6 +69,9 @@
             '      <a href="' +
             blogHref +
             '" class="site-drawer-link">Blog</a>' +
+            '      <a href="' +
+            privacyHref +
+            '" class="site-drawer-link">Privacy</a>' +
             "    </nav>" +
             '    <div class="site-drawer-footer">' +
             '      <button type="button" class="site-drawer-theme" data-theme-toggle aria-label="' +
