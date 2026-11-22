@@ -1048,6 +1048,50 @@ body.nav-drawer-open {
     max-width: 11rem;
 }
 
+.connector-item--coming-soon {
+    position: relative;
+    opacity: 0.62;
+    filter: grayscale(0.85);
+    pointer-events: none;
+}
+
+.connector-item--coming-soon:hover {
+    border-color: var(--border);
+    background: var(--surface-bg);
+}
+
+.connector-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.1rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid rgba(220, 38, 38, 0.45);
+    background: rgba(220, 38, 38, 0.12);
+    color: #f87171;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+.connector-badge::before {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.25);
+}
+
+:root[data-theme="quartz"] .connector-badge {
+    border-color: rgba(185, 28, 28, 0.35);
+    background: rgba(254, 226, 226, 0.9);
+    color: #b91c1c;
+}
+
 /* Community Section */
 .community-section {
     padding: 5rem 0;
